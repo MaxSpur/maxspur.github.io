@@ -1,4 +1,43 @@
 <!doctype html>
+<!--
+MIT License
+
+Copyright (c) 2026 Maxim Spur
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Geometric Visibility Lab
+Copyright (c) 2026 Maxim Spur
+
+The original project code, documentation, synthetic scene and benchmark data,
+and QR artwork are licensed under the MIT License in LICENSE.
+
+Affiliation logos in assets/brand/ and their embedded copies in the portable
+HTML are excluded from that grant. They identify Geovis, LASTIG, IGN, Geodata
+Paris, and Universite Gustave Eiffel. Copyright and trademark rights remain
+with their respective owners; this project does not grant rights to reuse
+those logos or imply institutional endorsement. See assets/brand/README.md
+for attribution and asset sources.
+
+Scientific references linked in the application describe related methods.
+The lab does not bundle CGAL or GRASS implementations.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -834,9 +873,15 @@ function rgb(c,a=1){if(Array.isArray(c))return c.length===4?c:[...c,a];c=c.repla
 function rgba(c,a){const r=rgb(c);return `rgba(${r[0]*255},${r[1]*255},${r[2]*255},${a})`;}
 const ctx={
   fillStyle:'#000',strokeStyle:'#000',lineWidth:1,font:'500 22px Futura,Helvetica Neue,Helvetica,sans-serif',textAlign:'left',dash:[],parts:[],stack:[],path:[],
-  reset(){this.parts=[];this.stack=[];this.path=[];this.dash=[];this.lineWidth=1;},
+  reset(){worldSVGSequence=0;this.parts=[];this.stack=[];this.path=[];this.dash=[];this.lineWidth=1;},
   raw(markup){this.parts.push(markup);},
-  commit(){view.innerHTML=this.parts.join('');},
+  commit(){
+    const markup=this.parts.join('');
+    if(markup===this.markup)return false;
+    view.innerHTML=markup;
+    this.markup=markup;
+    return true;
+  },
   save(){this.stack.push({fillStyle:this.fillStyle,strokeStyle:this.strokeStyle,lineWidth:this.lineWidth,font:this.font,textAlign:this.textAlign,dash:[...this.dash]});},
   restore(){if(this.stack.length)Object.assign(this,this.stack.pop());},
   setLineDash(d){this.dash=[...d];},
@@ -859,8 +904,8 @@ function mapFit(rect,outer){const xs=outer.map(v=>v[0]),ys=outer.map(v=>v[1]),x0
 function mapBase(scene,m,{grid=true}={}){poly2(scene.outer.map(m.p),'#f8fafb',C.wallLine,2);if(grid){ctx.raw('<g data-map-grid="true">');for(let x=10;x<100;x+=10)line2(m.p([x,0]),m.p([x,65]),C.grid,1);for(let y=10;y<65;y+=10)line2(m.p([0,y]),m.p([100,y]),C.grid,1);ctx.raw('</g>');}scene.holes.forEach(h=>poly2(h.map(m.p),C.wall,C.wallLine,2));}
 function walls(scene,m,labels=false){scene.holes.forEach((h,i)=>{poly2(h.map(m.p),null,C.wallLine,2.5);if(labels){const c=m.p(centroid(h));text2(String(i+1),c[0],c[1]+8,24,C.muted,'center');}});}
 function observer2(q,m,labels=false){dot2(m.p(q),10,C.purple);if(labels){const p=m.p(q);text2('q',p[0]+16,p[1]-9,24,C.ink);}}
-function camera3(rect,yaw=-.60,pitch=.66,center=[50,35,20],scale=null){const right=[Math.cos(yaw),Math.sin(yaw),0],up=[-Math.sin(yaw)*Math.sin(pitch),Math.cos(yaw)*Math.sin(pitch),Math.cos(pitch)],toward=cross3(right,up);if(scale===null)scale=Math.min(rect.w/128,rect.h/95);return {rect,right,up,toward,scale,center,p:v=>{const d=sub(v,center);return [rect.x+rect.w/2+dot(d,right)*scale,rect.y+rect.h/2-dot(d,up)*scale];},depth:v=>dot(sub(v,center),toward),inverseZ:(p,z)=>{const a=(p[0]-rect.x-rect.w/2)/scale-right[2]*(z-center[2]),b=-(p[1]-rect.y-rect.h/2)/scale-up[2]*(z-center[2]),det=right[0]*up[1]-right[1]*up[0];return [center[0]+(a*up[1]-b*right[1])/det,center[1]+(b*right[0]-a*up[0])/det];}};}
-function drawWorld(cam,faces,lines=[]){if(cam.main){const r=cam.rect,id='main-clip-'+[r.x,r.y,r.w,r.h].map(v=>Math.round(v)).join('-');ctx.raw(`<defs><clipPath id="${id}"><rect x="${svgNumber(r.x)}" y="${svgNumber(r.y)}" width="${svgNumber(r.w)}" height="${svgNumber(r.h)}"/></clipPath></defs><g clip-path="url(#${id})">`);}ctx.raw(worldSVG(cam,faces,lines));if(cam.main)ctx.raw('</g>');}
+function camera3(rect,yaw=-.60,pitch=.66,center=[50,35,20],scale=null){const right=[Math.cos(yaw),Math.sin(yaw),0],up=[-Math.sin(yaw)*Math.sin(pitch),Math.cos(yaw)*Math.sin(pitch),Math.cos(pitch)],toward=cross3(right,up);if(scale===null)scale=Math.min(rect.w/128,rect.h/95);return {rect,right,up,toward,scale,center,p:v=>{const x=v[0]-center[0],y=v[1]-center[1],z=v[2]-center[2];return [rect.x+rect.w/2+(x*right[0]+y*right[1]+z*right[2])*scale,rect.y+rect.h/2-(x*up[0]+y*up[1]+z*up[2])*scale];},depth:v=>(v[0]-center[0])*toward[0]+(v[1]-center[1])*toward[1]+(v[2]-center[2])*toward[2],inverseZ:(p,z)=>{const a=(p[0]-rect.x-rect.w/2)/scale-right[2]*(z-center[2]),b=-(p[1]-rect.y-rect.h/2)/scale-up[2]*(z-center[2]),det=right[0]*up[1]-right[1]*up[0];return [center[0]+(a*up[1]-b*right[1])/det,center[1]+(b*right[0]-a*up[0])/det];}};}
+function drawWorld(cam,faces,lines=[],guides=''){if(cam.main){const r=cam.rect,id='main-clip-'+[r.x,r.y,r.w,r.h].map(v=>Math.round(v)).join('-');ctx.raw(`<defs><clipPath id="${id}"><rect x="${svgNumber(r.x)}" y="${svgNumber(r.y)}" width="${svgNumber(r.w)}" height="${svgNumber(r.h)}"/></clipPath></defs><g clip-path="url(#${id})">`);}ctx.raw(worldSVG(cam,faces,lines,guides));if(cam.main)ctx.raw('</g>');}
 function edges3(poly,color=C.wallLine,alpha=1){return poly.map((a,i)=>({a,b:poly[(i+1)%poly.length],color,alpha}));}
 function terrainFaces(model=TERRAIN3){return model.tris.map(poly=>({poly,color:'#d4dedb'}));}
 function terrainLines(model=TERRAIN3){return model.tris.flatMap(p=>edges3(p,'#9cafa9',.7));}
@@ -876,7 +921,7 @@ function boundLines(z=55){const v=boxSurface(0,100,0,70,0,z);return v.flatMap(f=
  * depth. Hidden face regions and hidden line intervals are clipped analytically;
  * this changes neither the continuous visibility solver nor its receiver geometry. */
 let worldSVGSequence=0;
-function worldSVG(cam,faces,lines=[]){
+function worldSVG(cam,faces,lines=[],guides=''){
  const rect=cam.rect,eps=1e-7,number=n=>Number(n.toFixed(6)),id='world-clip-'+(++worldSVGSequence),escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
  const signed=p=>p.reduce((s,a,i)=>s+a[0]*p[(i+1)%p.length][1]-a[1]*p[(i+1)%p.length][0],0)/2;
  function half(p,f){if(!p.length)return [];const out=[];let a=p[p.length-1],da=f(a);for(const b of p){const db=f(b);if((da>=0)!==(db>=0)){const t=da/(da-db);out.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])]);}if(db>=0)out.push(b);a=b;da=db;}return out;}
@@ -891,10 +936,29 @@ function worldSVG(cam,faces,lines=[]){
  }
  // Draped comparison textures can request a stable paint layer. Otherwise
  // transparent construction faces retain their physical far-to-near order.
- const projected=faces.map(projectFace).filter(Boolean),opaque=projected.filter(f=>f.alpha>=.999&&!f.f.loops),transparent=projected.filter(f=>f.alpha<.999||f.f.loops).sort((a,b)=>(a.f.paintLayer||0)-(b.f.paintLayer||0)||a.depth-b.depth||a.index-b.index),bin=Math.max(20,Math.min(96,Math.sqrt(rect.w*rect.h/Math.max(1,opaque.length))*2)),hash=new Map();
- function keys(box,visit){const x0=Math.max(0,Math.floor((box[0]-rect.x)/bin)),x1=Math.min(Math.floor(rect.w/bin),Math.floor((box[2]-rect.x)/bin)),y0=Math.max(0,Math.floor((box[1]-rect.y)/bin)),y1=Math.min(Math.floor(rect.h/bin),Math.floor((box[3]-rect.y)/bin));for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)visit(x+','+y);}
- for(const f of opaque)keys(f.bounds,key=>{if(!hash.has(key))hash.set(key,[]);hash.get(key).push(f);});
- function candidates(box){const found=new Set();keys(box,key=>{for(const f of hash.get(key)||[])found.add(f);});return [...found].filter(f=>overlaps(box,f.bounds));}
+ const projected=faces.map(projectFace).filter(Boolean),opaque=projected.filter(f=>f.alpha>=.999&&!f.f.loops),transparent=projected.filter(f=>f.alpha<.999||f.f.loops).sort((a,b)=>(a.f.paintLayer||0)-(b.f.paintLayer||0)||a.depth-b.depth||a.index-b.index);
+ const bin=Math.max(20,Math.min(96,Math.sqrt(rect.w*rect.h/Math.max(1,opaque.length))*2));
+ const columns=Math.floor(rect.w/bin)+1,rows=Math.floor(rect.h/bin)+1,buckets=new Array(columns*rows);
+ const seen=new Uint32Array(faces.length);let stamp=0;
+ function eachBin(box,visit){
+  const x0=Math.max(0,Math.floor((box[0]-rect.x)/bin)),x1=Math.min(columns-1,Math.floor((box[2]-rect.x)/bin));
+  const y0=Math.max(0,Math.floor((box[1]-rect.y)/bin)),y1=Math.min(rows-1,Math.floor((box[3]-rect.y)/bin));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)visit(y*columns+x);
+ }
+ for(const face of opaque)eachBin(face.bounds,key=>(buckets[key]??=[]).push(face));
+ function candidates(box){
+  const result=[];stamp++;
+  eachBin(box,key=>{
+   const bucket=buckets[key];
+   if(!bucket)return;
+   for(const face of bucket){
+    if(seen[face.index]===stamp)continue;
+    seen[face.index]=stamp;
+    if(overlaps(box,face.bounds))result.push(face);
+   }
+  });
+  return result;
+ }
  const at=(plane,p)=>plane[0]*p[0]+plane[1]*p[1]+plane[2],output=[];let faceCandidates=0,lineCandidates=0,faceFragments=0,lineFragments=0;
  for(const target of [...opaque,...transparent]){let pieces=[target.footprint];for(const blocker of candidates(target.bounds)){if(blocker===target)continue;faceCandidates++;const delta=p=>at(blocker.plane,p)-at(target.plane,p)+(target.alpha>=.999&&blocker.index>target.index?eps:-eps);
    if(Math.max(...target.footprint.map(delta))<=0)continue;
@@ -924,22 +988,24 @@ function worldSVG(cam,faces,lines=[]){
   for(const [lo,hi] of visible){const p=[a[0]+lo*(b[0]-a[0]),a[1]+lo*(b[1]-a[1])],q=[a[0]+hi*(b[0]-a[0]),a[1]+hi*(b[1]-a[1])],color=rgb(l.color||C.wallLine,l.alpha??1),stroke='rgb('+color.slice(0,3).map(v=>number(clamp(v,0,1)*255)).join(',')+')',meta=(l.occlude===false?' data-inspection-guide="true"':'')+((l.role||l.sourceRay)?' data-line-role="'+escape(l.role||(l.sourceRay?'source-ray':''))+'"':'')+(l.sampleCell!==undefined?' data-sample-ray="'+escape(l.sampleCell)+'"':'')+(l.receiver!==undefined?' data-tested-receiver="'+escape(l.receiver)+'"':l.candidate!==undefined?' data-tested-occluder="'+escape(l.candidate)+'"':'');output.push('<line data-world-line="'+index+'" x1="'+number(p[0])+'" y1="'+number(p[1])+'" x2="'+number(q[0])+'" y2="'+number(q[1])+'" stroke="'+escape(stroke)+'" stroke-opacity="'+number(clamp(l.alpha??color[3]??1,0,1))+'" stroke-width="'+number(Math.max(.1,l.width||1))+'"'+meta+'/>');lineFragments++;}
  });
  worldSVG.lastStats={inputFaces:faces.length,projectedFaces:projected.length,opaqueFaces:opaque.length,faceCandidates,lineCandidates,faceFragments,lineFragments,binSize:bin};
- return '<defs><clipPath id="'+id+'"><rect x="'+number(rect.x)+'" y="'+number(rect.y)+'" width="'+number(rect.w)+'" height="'+number(rect.h)+'"/></clipPath></defs><g clip-path="url(#'+id+')">'+output.join('')+'</g>';
+ return '<defs><clipPath id="'+id+'"><rect x="'+number(rect.x)+'" y="'+number(rect.y)+'" width="'+number(rect.w)+'" height="'+number(rect.h)+'"/></clipPath></defs><g clip-path="url(#'+id+')">'+output.join('')+guides+'</g>';
 }
 
 
 /* Module: reference-notes */
 const ACRONYMS_HTML=`<h3 id="lab-glossary">Terms and abbreviations</h3><dl>
 <dt>2D / 3D</dt><dd>Two-dimensional / three-dimensional geometry: a planar domain / geometry with elevation as well as horizontal position.</dd>
+<dt>XY</dt><dd>The horizontal coordinates of a point. Terrain elevations are measured along Z.</dd>
 <dt>DDA</dt><dd>Digital differential analyzer: a traversal that advances between the next crossed grid boundaries. Here it visits every height-grid cell crossed by a line of sight.</dd>
 <dt>IQR / CI</dt><dd>Interquartile range / confidence interval. The interquartile range describes variation among observer cases; the bootstrap confidence interval estimates uncertainty in the suite median under its stated sampling design.</dd>
 <dt>pp</dt><dd>Percentage points: the arithmetic difference between two percentages, rather than a percentage change relative to one of them.</dd>
-<dt>CPU / GPU</dt><dd>Central processing unit / graphics processing unit. The visibility solvers and benchmark here run as JavaScript on the central processor; browser display is a separate operation.</dd>
+<dt>CPU / GPU</dt><dd>Central processing unit / graphics processing unit. The solvers use the central processor. Dense 3D sampling can use WebAssembly, while the benchmark suite measures JavaScript. SVG drawing is a separate operation.</dd>
 <dt>CGAL</dt><dd>Computational Geometry Algorithms Library, a separate library cited for published algorithms and complexity bounds. This page does not run that library.</dd>
 <dt>BVH</dt><dd>Bounding volume hierarchy: a tree of enclosing boxes used to reject groups of triangles or edges before testing them individually.</dd>
 <dt>LOS</dt><dd>Line of sight: the straight segment from the observer to a target. Visibility requires no intervening opaque geometry.</dd>
 <dt>TIN / DEM</dt><dd>Triangulated irregular network / digital elevation model. Here terrain is a network of planar triangles. A raster elevation model samples a grid and needs an interpolation rule between samples.</dd>
 <dt>GRASS</dt><dd>Geographic Resources Analysis Support System, the geographic software whose terrain-grid viewshed documentation is cited below.</dd>
+<dt>PCL</dt><dd>Point Cloud Library. Its organized-mesh implementation is cited in the sampling reference.</dd>
 <dt>JIT</dt><dd>Just-in-time compilation: a browser can compile frequently executed JavaScript while the page runs, changing timing after warmup.</dd>
 <dt>PNG / JSON</dt><dd>Portable Network Graphics / JavaScript Object Notation: the raster image export format / the text format for saved settings and benchmark results.</dd>
 <dt>SVG / HTML</dt><dd>Scalable Vector Graphics / HyperText Markup Language: editable vector diagram elements / the page's controls and selectable explanations.</dd>
@@ -1010,7 +1076,7 @@ const MODES=[
  {id:'cost',name:'8 · Benchmarks',variants:[['bench','Benchmarks']]}
 ];
 const DEFAULT={scene:'shadows',variant:'construct',phase:0,duration:12,panel:true,map:0,q2:[43,32],qxy:[9,35],eye:8,light:[9,16,10],yaw:-.65,pitch:.78,zoom:1,wire:true,airWire:false,airOpacity:.65,cuts:true,history:true,labels:true,inset:true,construction:true,opening:0,locator:'index',ceiling:1,face:-1,order:'near',dimension:'2d',metric:'area',raySearch:'indexed',rays:48,sampleBudget:4096,cubeN:26,sampler:'surface',compare:'overlay',hidden:false,shadowEnvelope:false,sampleWire:false,viewFocus:true,showRays:true,rayDisplay:'hits',rayDrawLimit:128,candidates:false,density:'regular',rasterN:48,exportMode:'graphics'};
-let state=structuredClone(DEFAULT),playing=false,lastTick=0,playStart=0,phaseStart=0,hitTargets=[],stepCount=1,exporting=false,panelData={},benchResult=null,benchmarkBusy=false;
+let state=structuredClone(DEFAULT),playing=false,playStart=0,phaseStart=0,hitTargets=[],stepCount=1,exporting=false,panelData={},benchResult=null,benchmarkBusy=false;
 const savedTabs=new Map(),cache=new Map();
 function memo(key,fn){if(cache.has(key))return cache.get(key);const v=fn();cache.set(key,v);if(cache.size>14)cache.delete(cache.keys().next().value);return v;}
 let lastSample={key:null,value:null},lastError={key:null,value:null};
@@ -1020,7 +1086,12 @@ const $=id=>document.getElementById(id);
 function setPanel(data){panelData=data;}
 function G(s){return {x:20,y:20,w:W-40,h:860};}
 function boundsPoly(b){return [[b.lo[0],b.lo[1]],[b.hi[0],b.lo[1]],[b.hi[0],b.hi[1]],[b.lo[0],b.hi[1]]];}
-function baseModel(s){const dims=s.density==='coarse'?[6,4]:s.density==='fine'?[12,8]:[10,7];return memo('base'+dims,()=>{const m=inputTerrain(...dims);m.nx=dims[0];m.ny=dims[1];m.prepared=prepare3(m.tris);return m;});}
+const terrainBases=new Map();
+function baseModel(s){
+ const dims=s.density==='coarse'?[6,4]:s.density==='fine'?[12,8]:[10,7],key=dims.join(':');
+ if(!terrainBases.has(key)){const model=inputTerrain(...dims);model.prepared=prepare3(model.tris);terrainBases.set(key,model);}
+ return terrainBases.get(key);
+}
 function terrainState(s,needBeams=false){const base=baseModel(s),q=[...s.qxy,terrainHeight(...s.qxy,base.tris)+s.eye],key='terrain'+s.density+keyq(q)+s.ceiling;return memo(key,()=>({q,base,model:terrainWithCeiling(base,q,s.ceiling)}));}
 function getReference(d,order='near'){if(!d.reference)d.reference=attachSolverWork(()=>referenceSurface3(d.q,d.model.tris,occluderOrder(d.model.tris,d.q,order)));return d.reference;}
 function getBeams(d){if(!d.beams){const t=NOW();d.beams=attachSolverWork(()=>expand3(d.q,d.model));d.beams.ms=NOW()-t;}return d.beams;}
@@ -1028,7 +1099,11 @@ function twoData(s){const scene=SCENES[s.map],q=s.q2;return memo('two'+s.map+key
 function cameraMain(s,g=G(s),center=[50,35,12]){return {...camera3(g,s.yaw,s.pitch,center,Math.min(g.w/131,g.h/111)*(s.zoom||1)),main:true};}
 function register(q,cam,kind){hitTargets.push({kind,rect:cam.rect,point:cam.p(q),cam});}
 function segLines(edges,color=C.teal,width=2,alpha=1){return edges.map(([a,b])=>({a,b,color,width,alpha}));}
-function groundLines(model){return uniqueEdges(model.tris).map(([a,b])=>({a,b,color:'#9cabaf',alpha:.72,width:1}));}
+const terrainWire=new WeakMap();
+function groundLines(model){
+ if(!terrainWire.has(model))terrainWire.set(model,uniqueEdges(model.tris).map(([a,b])=>({a,b,color:'#9cabaf',alpha:.72,width:1})));
+ return terrainWire.get(model).slice();
+}
 function originalForSurface(f,model){return f.owner!==undefined?model.tris[f.owner]:model.boundary[f.boundary]?.poly||f.whole||f.poly;}
 function completedLines(s,surfaces,model,color=C.teal){if(!s.cuts)return [];return surfaces.flatMap(f=>segLines(cutEdges(f.poly,originalForSurface(f,model)),color,2.5));}
 function ink3(poly,cam,color=C.teal,width=3,dash=[]){if(poly.length<2)return;poly.forEach((p,i)=>line2(cam.p(p),cam.p(poly[(i+1)%poly.length]),color,width,dash));}
@@ -1506,43 +1581,596 @@ function recoverTerrainRaster(raw,grid){
 function terrainSurfaceRaster(q,base,N){const grid=prepareTerrainRaster(base,N),raw=terrainRasterVisibility(q,grid);return recoverTerrainRaster(raw,grid);}
 
 
+/* Module: lab-kernels */
+/* Live computation batches share reusable immutable inputs and scratch space.
+ * Each kernel owns its linear memory. Results are copied out before the next
+ * call can overwrite or grow memory. The embedded module needs no fetch. */
+const LAB_WASM = "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IQIgASAANgIMIAEgAjcCBCABQQRqEJaAgIAAAAvUAgIDfwF+I4CAgIAAQcAAayICJICAgIAAAkAgASgCAEGAgICAeEcNACABKAIMIQMgAkEcakEIaiIEQQA2AgAgAkKAgICAEDcCHCACQShqQQhqIAMoAgAiA0EIaikCADcDACACQShqQRBqIANBEGopAgA3AwAgAiADKQIANwMoIAJBHGpB7IOBgAAgAkEoahCzgICAABogAkEQakEIaiAEKAIAIgM2AgAgAiACKQIcIgU3AxAgAUEIaiADNgIAIAEgBTcCAAsgASkCACEFIAFCgICAgBA3AgAgAkEIaiIDIAFBCGoiASgCADYCACABQQA2AgBBAC0AgYqBgAAaIAIgBTcDAAJAQQxBBBCCgICAACIBDQBBBEEMEK6AgIAAAAsgASACKQMANwIAIAFBCGogAygCADYCACAAQYiGgYAANgIEIAAgATYCACACQcAAaiSAgICAAAveAQIDfwF+I4CAgIAAQTBrIgIkgICAgAACQCABKAIAQYCAgIB4Rw0AIAEoAgwhAyACQQxqQQhqIgRBADYCACACQoCAgIAQNwIMIAJBGGpBCGogAygCACIDQQhqKQIANwMAIAJBGGpBEGogA0EQaikCADcDACACIAMpAgA3AxggAkEMakHsg4GAACACQRhqELOAgIAAGiACQQhqIAQoAgAiAzYCACACIAIpAgwiBTcDACABQQhqIAM2AgAgASAFNwIACyAAQYiGgYAANgIEIAAgATYCACACQTBqJICAgIAAC5sBAQF/I4CAgIAAQSBrIgIkgICAgAACQAJAIAAoAgBBgICAgHhGDQAgASAAKAIEIAAoAggQuoCAgAAhAAwBCyACQQhqQQhqIAAoAgwoAgAiAEEIaikCADcDACACQQhqQRBqIABBEGopAgA3AwAgAiAAKQIANwMIIAEoAhwgASgCICACQQhqELOAgIAAIQALIAJBIGokgICAgAAgAAtYAQJ/QQAtAIGKgYAAGiABKAIEIQIgASgCACEDAkBBCEEEEIKAgIAAIgENAEEEQQgQroCAgAAACyABIAI2AgQgASADNgIAIABBmIaBgAA2AgQgACABNgIACxQAIABBmIaBgAA2AgQgACABNgIACwwAIAAgASkCADcDAAsUACABIAAoAgAgACgCBBC6gICAAAuHAgECfyOAgICAAEEgayIFJICAgIAAAkACQEEBEJyAgIAAQf8BcSIGQQJGDQAgBkEBcUUNASAFQQhqIAAgASgCGBGAgICAAICAgIAAAAtBACgCiIqBgAAiBkF/TA0AQQAgBkEBajYCiIqBgAACQEEAKAKMioGAAEUNACAFIAAgASgCFBGAgICAAICAgIAAIAUgBDoAHSAFIAM6ABwgBSACNgIYIAUgBSkDADcCEEEAKAKMioGAACAFQRBqQQAoApCKgYAAKAIUEYCAgIAAgICAgABBACgCiIqBgABBf2ohBgtBACAGNgKIioGAAEEAQQA6AOCNgYAAIANFDQAgACABEKaAgIAACwALDgAgACABEKiAgIAAGgALKAEBfyABIABBACgChIqBgAAiAkGCgICAACACGxGAgICAAICAgIAAAAsDAAALOQEBfyACQRB2QAAhAyAAQQA2AgggAEEAIAJBgIB8cSADQX9GIgIbNgIEIABBACADQRB0IAIbNgIAC0MBAX8jgICAgABBIGsiASSAgICAACABQQA2AhggAUEBNgIMIAFB9IaBgAA2AgggAUIENwIQIAFBCGogABCygICAAAAL4gEBBH8jgICAgABBIGsiAiSAgICAAAJAIAAoAgAiA0F/Rw0AQQBBACABEKyAgIAAAAsCQCADQQF0IgQgA0EBaiIFIAQgBUsbIgRBCCAEQQhLGyIEQQBODQBBAEEAIAEQrICAgAAAC0EAIQUCQCADRQ0AIAIgAzYCHCACIAAoAgQ2AhRBASEFCyACIAU2AhggAkEIakEBIAQgAkEUahCtgICAAAJAIAIoAghBAUcNACACKAIMIAIoAhAgARCsgICAAAALIAIoAgwhAyAAIAQ2AgAgACADNgIEIAJBIGokgICAgAALHQACQCAADQAgAhCqgICAAAALIAAgARCugICAAAALuwEBAX8CQAJAIAJBAEgNAAJAAkACQCADKAIERQ0AAkAgAygCCCIEDQACQCACDQAgASEDDAQLQQAtAIGKgYAAGgwCCyADKAIAIAQgASACEISAgIAAIQMMAgsCQCACDQAgASEDDAILQQAtAIGKgYAAGgsgAiABEIKAgIAAIQMLAkAgA0UNACAAIAI2AgggACADNgIEIABBADYCAA8LIAAgAjYCCCAAIAE2AgQMAQsgAEEANgIECyAAQQE2AgALDQAgASAAEIWAgIAAAAt5AgF/AX4jgICAgABBMGsiAySAgICAACADIAE2AgQgAyAANgIAIANBAjYCDCADQbCHgYAANgIIIANCAjcCFCADQYGAgIAArUIghiIEIAOthDcDKCADIAQgA0EEaq2ENwMgIAMgA0EgajYCECADQQhqIAIQsoCAgAAACw8AIAAgASACELuAgIAAAAtNAQF/I4CAgIAAQSBrIgMkgICAgAAgA0EANgIQIANBATYCBCADQgQ3AgggAyABNgIcIAMgADYCGCADIANBGGo2AgAgAyACELKAgIAAAAs2AQF/I4CAgIAAQRBrIgIkgICAgAAgAkEBOwEMIAIgATYCCCACIAA2AgQgAkEEahCdgICAAAALuwUBCn8jgICAgABBMGsiAySAgICAACADIAE2AiwgAyAANgIoIANBAzoAJCADQiA3AhxBACEEIANBADYCFCADQQA2AgwCQAJAAkACQAJAIAIoAhAiBQ0AIAIoAgwiAEUNASACKAIIIgEgAEEDdGohBiAAQX9qQf////8BcUEBaiEEIAIoAgAhAANAAkAgAEEEaigCACIHRQ0AIAMoAiggACgCACAHIAMoAiwoAgwRgYCAgACAgICAAA0ECyABKAIAIANBDGogAUEEaigCABGCgICAAICAgIAADQMgAEEIaiEAIAFBCGoiASAGRw0ADAILCyACKAIUIgFFDQAgAUEFdCEIIAFBf2pB////P3FBAWohBCACKAIIIQkgAigCACEAQQAhBwNAAkAgAEEEaigCACIBRQ0AIAMoAiggACgCACABIAMoAiwoAgwRgYCAgACAgICAAA0DCyADIAUgB2oiAUEQaigCADYCHCADIAFBHGotAAA6ACQgAyABQRhqKAIANgIgIAFBDGooAgAhBkEAIQpBACELAkACQAJAIAFBCGooAgAOAwEAAgELIAZBA3QhDEEAIQsgCSAMaiIMKAIADQEgDCgCBCEGC0EBIQsLIAMgBjYCECADIAs2AgwgAUEEaigCACEGAkACQAJAIAEoAgAOAwEAAgELIAZBA3QhCyAJIAtqIgsoAgANASALKAIEIQYLQQEhCgsgAyAGNgIYIAMgCjYCFCAJIAFBFGooAgBBA3RqIgEoAgAgA0EMaiABQQRqKAIAEYKAgIAAgICAgAANAiAAQQhqIQAgCCAHQSBqIgdHDQALCyAEIAIo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";
+let labKernelModule;
+const labKernels = new Map();
+
+function labKernel(name) {
+  if (labKernels.has(name)) return labKernels.get(name);
+  let kernel = null;
+  try {
+    if (labKernelModule === undefined) {
+      labKernelModule = null;
+      if (LAB_WASM && typeof WebAssembly !== 'undefined') {
+        labKernelModule = new WebAssembly.Module(Uint8Array.from(atob(LAB_WASM), c => c.charCodeAt(0)));
+      }
+    }
+    if (labKernelModule) {
+      const exports = new WebAssembly.Instance(labKernelModule).exports;
+      kernel = {exports, input: null, slots: []};
+    }
+  } catch {
+    // Engines or deployment policies that disallow Wasm use the JS solver.
+  }
+  labKernels.set(name, kernel);
+  return kernel;
+}
+
+function layoutLabBuffers(kernel, specifications) {
+  let offset = Number(kernel.exports.__heap_base.value);
+  const slots = specifications.map(([Type, count]) => {
+    const stride = Type.BYTES_PER_ELEMENT;
+    offset = Math.ceil(offset / stride) * stride;
+    const slot = {Type, count, offset};
+    offset += count * stride;
+    return slot;
+  });
+  const memory = kernel.exports.memory;
+  if (offset > memory.buffer.byteLength) memory.grow(Math.ceil((offset - memory.buffer.byteLength) / 65536));
+  return slots;
+}
+
+function labBuffer(kernel, {Type, count, offset}) {
+  return new Type(kernel.exports.memory.buffer, offset, count);
+}
+
+function traceLabTerrainRaster(q, grid) {
+  const kernel = labKernel('terrain');
+  if (!kernel) return terrainRasterVisibility(q, grid);
+  const start = NOW(), {N, ny, cellCount, bounds, dx, dy} = grid;
+  try {
+    if (kernel.input !== grid) {
+      const coefficients = terrainRasterCoefficients(grid);
+      kernel.slots = layoutLabBuffers(kernel, [[Float64Array, coefficients.length],
+        [Float64Array, grid.centers.length], [Uint8Array, cellCount], [Uint32Array, 3]]);
+      labBuffer(kernel, kernel.slots[0]).set(coefficients);
+      labBuffer(kernel, kernel.slots[1]).set(grid.centers);
+      kernel.input = grid;
+    }
+    const [coefficients, centers, mask, counts] = kernel.slots;
+    kernel.exports.trace_terrain_grid(N, ny, (q[0] - bounds.lo[0]) / dx, (q[1] - bounds.lo[1]) / dy,
+      q[2], coefficients.offset, centers.offset, mask.offset, counts.offset);
+    const visible = labBuffer(kernel, mask).slice();
+    const [cellVisits, heightTests, blocked] = labBuffer(kernel, counts);
+    const stats = {queries: cellCount, cellVisits, heightTests, blocked};
+    const work = emptySolverWork();
+    work.rasterDepthTests = heightTests;
+    return {q: [...q], N, ny, visible, cellCount, count: cellCount, stats, work: finishSolverWork(work),
+      ms: NOW() - start, algorithm: 'Bilinear terrain-grid visibility'};
+  } catch {
+    labKernels.set('terrain', null);
+    return terrainRasterVisibility(q, grid);
+  }
+}
+
+function traceLabRays(q, prepared, N, indexed = true) {
+  const kernel = labKernel('rays');
+  if (!kernel) return traceRayCube(q, prepared, N, indexed);
+  const start = NOW(), count = 6 * N * N;
+  try {
+    const {nodeCount, triangles, nodes, leaf, root} = prepared;
+    const slots = layoutLabBuffers(kernel, [[Float64Array, triangles.length], [Float64Array, nodes.length],
+      [Int32Array, nodeCount * 4], [Int32Array, leaf.length], [Float64Array, prepared.count * 13], [Float64Array, nodeCount * 2], [Int32Array, count],
+      [Float64Array, count], [Uint32Array, 2]]);
+    const [tris, bounds, children, leaves, staged, stack, idsSlot, depthSlot, statsSlot] = slots;
+    if (kernel.input !== prepared) {
+      labBuffer(kernel, tris).set(triangles);
+      labBuffer(kernel, bounds).set(nodes);
+      labBuffer(kernel, leaves).set(leaf);
+      const data = labBuffer(kernel, children);
+      for (let id = 0; id < nodeCount; id++) {
+        data.set([prepared.left[id], prepared.right[id], prepared.offsets[id], prepared.counts[id]], id * 4);
+      }
+      kernel.input = prepared;
+    }
+    kernel.exports.trace_ray_cube(N, +indexed, ...q, tris.offset, prepared.count, bounds.offset,
+      children.offset, nodeCount, leaves.offset, root, staged.offset, stack.offset, idsSlot.offset, depthSlot.offset, statsSlot.offset);
+    const ids = labBuffer(kernel, idsSlot).slice(), depth = labBuffer(kernel, depthSlot).slice();
+    const [tests, boxes] = labBuffer(kernel, statsSlot);
+    const work = emptySolverWork();
+    work.rayPrimitiveTests = tests;
+    work.rayBoxTests = boxes;
+    return {q, N, ids, depth, stats: {tests, boxes}, work: finishSolverWork(work), ms: NOW() - start,
+      algorithm: indexed ? 'Indexed rays' : 'Brute-force rays'};
+  } catch {
+    labKernels.set('rays', null);
+    return traceRayCube(q, prepared, N, indexed);
+  }
+}
+
+
+/* Module: surface-workspace */
+/* Interactive surface staging. The benchmark adapters keep their original
+ * per-cell outputs, preparation costs, and source fingerprints. */
+const labTerrainPreparation = new WeakMap();
+const labTerrainGrids = new Map();
+const labSurfaceResults = new Map();
+
+function prepareLabTerrain(base) {
+  let prepared = labTerrainPreparation.get(base);
+  if (!prepared) {
+    prepared = {
+      triangles: base.tris.map(poly => ({poly, bounds: bboxOf(poly, 2)})),
+      rays: prepareRayQuery(base.prepared),
+      adjacency: prepareRayReconstruction(base.tris),
+      area: base.tris.reduce((total, poly) => total + area3(poly), 0)
+    };
+    labTerrainPreparation.set(base, prepared);
+  }
+  return prepared;
+}
+
+function labTerrainGrid(base, columns) {
+  const key = base.nx + ':' + base.ny + ':' + columns;
+  if (labTerrainGrids.has(key)) {
+    const grid = labTerrainGrids.get(key);
+    labTerrainGrids.delete(key);
+    labTerrainGrids.set(key, grid);
+    return grid;
+  }
+
+  const {triangles} = prepareLabTerrain(base);
+  const bounds = bboxOf(base.tris.flat(), 2);
+  const [left, bottom] = bounds.lo;
+  const N = columns;
+  const ny = Math.max(1, Math.round(N * (bounds.hi[1] - bottom) / (bounds.hi[0] - left)));
+  const dx = (bounds.hi[0] - left) / N;
+  const dy = (bounds.hi[1] - bottom) / ny;
+  const nodes = new Float64Array((N + 1) * (ny + 1)).fill(NaN);
+  const stats = {nodeCandidates: 0, nodeWrites: 0};
+  for (const {poly: [a, b, c], bounds: box} of triangles) {
+    const bx = b[0] - a[0], by = b[1] - a[1], cx = c[0] - a[0], cy = c[1] - a[1];
+    const det = bx * cy - by * cx;
+    if (Math.abs(det) < 1e-12) throw Error('Terrain raster requires a single-valued height field');
+    const x0 = clamp(Math.ceil((box.lo[0] - left) / dx - 1e-9), 0, N);
+    const x1 = clamp(Math.floor((box.hi[0] - left) / dx + 1e-9), 0, N);
+    const y0 = clamp(Math.ceil((box.lo[1] - bottom) / dy - 1e-9), 0, ny);
+    const y1 = clamp(Math.floor((box.hi[1] - bottom) / dy + 1e-9), 0, ny);
+    for (let y = y0; y <= y1; y++) {
+      const py = bottom + y * dy - a[1];
+      for (let x = x0; x <= x1; x++) {
+        stats.nodeCandidates++;
+        const px = left + x * dx - a[0];
+        const u = (px * cy - py * cx) / det, v = (bx * py - by * px) / det;
+        if (u < -1e-9 || v < -1e-9 || u + v > 1 + 1e-9) continue;
+        nodes[y * (N + 1) + x] = a[2] + u * (b[2] - a[2]) + v * (c[2] - a[2]);
+        stats.nodeWrites++;
+      }
+    }
+  }
+  if (nodes.some(value => !Number.isFinite(value))) throw Error('Terrain raster contains an uncovered elevation node');
+  const grid = {N, ny, dx, dy, bounds, nodes, stats, cellCount: N * ny};
+  terrainRasterCoefficients(grid);
+  labTerrainGrids.set(key, grid);
+  if (labTerrainGrids.size > 2) labTerrainGrids.delete(labTerrainGrids.keys().next().value);
+  return grid;
+}
+
+/* Merge identical horizontal spans across neighboring rows. Each rectangle
+ * is the union of complete texels of one class. Clip against the input mesh
+ * before measuring area so a rectangle crossing a ridge keeps both slopes. */
+function maskRectangles(raw) {
+  const rectangles = [];
+  let active = new Map();
+  for (let y = 0; y < raw.ny; y++) {
+    const row = new Map();
+    for (let x = 0; x < raw.N;) {
+      const start = x, visible = raw.visible[y * raw.N + x++];
+      while (x < raw.N && raw.visible[y * raw.N + x] === visible) x++;
+      const key = (start * (raw.N + 1) + x) * 2 + visible;
+      let rect = active.get(key);
+      if (rect) rect.y1 = y + 1;
+      else {
+        rect = {x0: start, x1: x, y0: y, y1: y + 1, visible};
+        rectangles.push(rect);
+      }
+      row.set(key, rect);
+    }
+    active = row;
+  }
+  return rectangles;
+}
+
+function recoverLabTerrainRaster(raw, grid, prepared) {
+  const polys = [], hidden = [];
+  const [left, bottom] = grid.bounds.lo;
+  let area = 0;
+  for (const rect of maskRectangles(raw)) {
+    const x0 = left + rect.x0 * grid.dx, x1 = left + rect.x1 * grid.dx;
+    const y0 = bottom + rect.y0 * grid.dy, y1 = bottom + rect.y1 * grid.dy;
+    const planes = [{n: [1, 0, 0], d: x0}, {n: [-1, 0, 0], d: -x1},
+      {n: [0, 1, 0], d: y0}, {n: [0, -1, 0], d: -y1}];
+    const target = rect.visible ? polys : hidden;
+    for (let owner = 0; owner < prepared.triangles.length; owner++) {
+      const {poly, bounds: b} = prepared.triangles[owner];
+      if (b.hi[0] <= x0 || b.lo[0] >= x1 || b.hi[1] <= y0 || b.lo[1] >= y1) continue;
+      const patch = b.lo[0] >= x0 && b.hi[0] <= x1 && b.lo[1] >= y0 && b.hi[1] <= y1
+        ? poly : clipByPlanes(poly, planes);
+      const size = area3(patch);
+      if (size <= 1e-9) continue;
+      target.push({poly: patch, owner, kind: 'terrain'});
+      if (rect.visible) area += size;
+    }
+  }
+  return {...raw, polys, hidden, area, grid};
+}
+
+/* Reference fragments are convex and coplanar with the corresponding sample
+ * owner. Prepare their side planes once and eliminate disjoint bounding boxes
+ * before invoking the same half-space clipping and physical area formulas. */
+function labSurfaceError(reference, sample, count) {
+  const owners = Array.from({length: count}, () => []);
+  for (const face of reference.surfaces) {
+    const poly = face.poly, normal = normal3(poly);
+    const planes = poly.map((p, i) => {
+      const n = unit(cross3(normal, sub(poly[(i + 1) % poly.length], p)));
+      return {n, d: dot(n, p)};
+    });
+    owners[face.owner].push({planes, bounds: bboxOf(poly, 2)});
+  }
+  let intersection = 0;
+  for (const face of sample.polys) {
+    const candidates = owners[face.owner];
+    if (!candidates.length) continue;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of face.poly) {
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    for (const {planes, bounds} of candidates) {
+      // Match the clipping tolerance at a nearly coincident boundary.
+      if (x0 > bounds.hi[0] + 1e-8 || x1 < bounds.lo[0] - 1e-8 ||
+          y0 > bounds.hi[1] + 1e-8 || y1 < bounds.lo[1] - 1e-8) continue;
+      let overlap = face.poly;
+      for (const plane of planes) {
+        overlap = clip3(overlap, plane);
+        if (overlap.length < 3) break;
+      }
+      intersection += area3(overlap);
+    }
+  }
+  return {intersection, missed: Math.max(0, reference.area - intersection),
+    extra: Math.max(0, sample.area - intersection), xor: Math.max(0, reference.area + sample.area - 2 * intersection)};
+}
+
+/* Interior sample edges usually share both endpoints. Cancel them before
+ * tracing loops. Sloping terrain has one Z for a given XY within each source
+ * face, so the fast lookup can use the same XY precision as the loop tracer.
+ * The general collinear sweep still handles partial edges and T junctions. */
+function labDisplaySurfaceGroups(sample) {
+  const byOwner = new Map();
+  for (const {owner, poly} of sample.polys) {
+    if (!byOwner.has(owner)) byOwner.set(owner, []);
+    byOwner.get(owner).push(poly);
+  }
+  const groups = [];
+  for (const [owner, polys] of byOwner) {
+    if (polys.length < 8) {
+      groups.push(...raySurfaceDisplayGroups({polys: polys.map(poly => ({owner, poly}))}));
+      continue;
+    }
+    const vertices = new Map(), odd = new Map();
+    let total = 0;
+    for (const poly of polys) {
+      total += area3(poly);
+      let a = poly.at(-1), aid = vertexId(a);
+      for (const b of poly) {
+        const bid = vertexId(b);
+        if (aid !== bid) {
+          const key = Math.min(aid, bid) * 2 ** 24 + Math.max(aid, bid);
+          if (!odd.delete(key)) odd.set(key, [a, b]);
+        }
+        a = b;
+        aid = bid;
+      }
+    }
+    function vertexId(point) {
+      // The laboratory terrain's fixed domain is [0,100] × [0,70].
+      const key = Math.round(point[0] * 1e5) * 1e8 + Math.round(point[1] * 1e5);
+      let id = vertices.get(key);
+      if (id === undefined) {
+        id = vertices.size;
+        vertices.set(key, id);
+      }
+      return id;
+    }
+    const candidate = raySurfaceBoundaryLoops([...odd.values()]);
+    const rings = candidate.map(poly => ({poly: poly.map(p => p.slice(0, 2)), box: bboxOf(poly, 2)}));
+    const loopArea = candidate.reduce((sum, poly, i) => {
+      const point = rings[i].poly[0], [x, y] = point;
+      const nesting = rings.reduce((n, r, j) => n + (i !== j && x >= r.box.lo[0] && x <= r.box.hi[0] &&
+        y >= r.box.lo[1] && y <= r.box.hi[1] && inside(point, r.poly) ? 1 : 0), 0);
+      return sum + area3(poly) * (nesting % 2 ? -1 : 1);
+    }, 0);
+    if (Math.abs(loopArea - total) <= Math.max(1e-6, total * 1e-7)) {
+      groups.push({owner, kind: 'terrain', polys, loops: candidate, dissolved: true});
+    } else {
+      groups.push(...raySurfaceDisplayGroups({polys: polys.map(poly => ({owner, poly}))}));
+    }
+  }
+  return groups;
+}
+
+/* An angular cell wholly inside its winning triangle cannot cross a shared
+ * edge. Merge consecutive such cells before clipping the surface. Cells near
+ * any source edge still run the original connected reconstruction. */
+function labRayInteriorTests(q, frame, prepared) {
+  return prepared.tris.map((poly, owner) => {
+    if (val3(prepared.planes[owner], q) <= .01) return null;
+    const points = [];
+    for (const point of poly) {
+      const d = sub(point, q), forward = dot(d, frame.f);
+      if (forward <= 1e-6) return null;
+      points.push([dot(d, frame.r) / forward, dot(d, frame.u) / forward]);
+    }
+    if (cross(sub(points[1], points[0]), sub(points[2], points[0])) < 0) points.reverse();
+    return points.map(([x, y], i) => {
+      const [ex, ey] = points[(i + 1) % 3];
+      const length = Math.hypot(ey - y, ex - x);
+      return [(y - ey) / length, (ex - x) / length, x, y];
+    });
+  });
+}
+
+function recoverLabRays(raw, prepared) {
+  const {q, N, ids} = raw;
+  // A small batch can use the original path without any staging overhead.
+  if (N < 32) return recoverRaySurface(raw, prepared);
+  const start = NOW(), remaining = ids.slice(), polys = [], work = emptySolverWork();
+  const size = 2 / N;
+  let area = 0;
+  for (let face = 0; face < CUBE_FRAMES.length; face++) {
+    const frame = CUBE_FRAMES[face];
+    const tests = labRayInteriorTests(q, frame, prepared);
+    const rectangles = [];
+    let previous = new Map();
+    for (let y = 0; y < N; y++) {
+      const current = new Map();
+      const v = -1 + 2 * y / N;
+      let span = null;
+      for (let x = 0; x <= N; x++) {
+        const k = (face * N + y) * N + x;
+        const id = x < N ? ids[k] : -1;
+        const u = -1 + 2 * x / N;
+        let inside = id >= 0 && !!tests[id];
+        if (inside) {
+          for (const [nx, ny, px, py] of tests[id]) {
+            work.sideTests++;
+            // Test the least interior corner and leave a margin for roundoff.
+            const worst = nx * (u + (nx < 0 ? size : 0) - px) + ny * (v + (ny < 0 ? size : 0) - py);
+            if (!(worst > 1e-8)) {
+              inside = false;
+              break;
+            }
+          }
+        }
+        if (span && (!inside || id !== span.owner)) {
+          const key = (span.owner * N + span.x0) * (N + 1) + x;
+          let rect = previous.get(key);
+          if (rect) rect.y1 = y + 1;
+          else {
+            rect = {...span, x1: x, y0: y, y1: y + 1};
+            rectangles.push(rect);
+          }
+          current.set(key, rect);
+          span = null;
+        }
+        if (inside) {
+          if (!span) span = {owner: id, x0: x};
+          remaining[k] = -1;
+        }
+      }
+      previous = current;
+    }
+    for (const {owner, x0, x1, y0, y1} of rectangles) {
+      const planes = rayReconstructionCellPlanes(frame, q, -1 + 2 * x0 / N, -1 + 2 * (x1 - 1) / N + size,
+        -1 + 2 * y0 / N, -1 + 2 * (y1 - 1) / N + size);
+      let poly = prepared.tris[owner];
+      for (const plane of planes) {
+        if (poly.length < 3) break;
+        work.polygonClips++;
+        work.halfPlaneTests += poly.length + 1;
+        poly = rayReconstructionClip(poly, plane, work);
+      }
+      if (poly.length < 3) continue;
+      polys.push({poly, owner, kind: 'terrain'});
+      area += rayReconstructionArea(poly);
+    }
+  }
+  const boundary = recoverRaySurface({...raw, ids: remaining}, prepared);
+  return {...raw, polys: polys.concat(boundary.polys), area: area + boundary.area,
+    recoveryMs: NOW() - start, work: sumSolverWork(finishSolverWork(work), boundary.work),
+    algorithm: boundary.algorithm};
+}
+
+
 /* Module: sample-comparison */
 /* Matched teaching samplers. Resolution belongs to the transport, not a second
  * budget. Raster2 is genuinely a binary occupancy-grid traversal: no wall-ray
  * solver or geometric answer is consulted to classify its visibility mask. */
 function sampleComparisonSettings3(s){return {...s,variant:'still',sampler:s.variant==='raster'?'surface-grid':'angular',cubeN:sampleResolution(s),showRays:true,rayDrawLimit:6*sampleResolution(s)**2};}
 function samplerDisplayColor(s){return benchmarkRowColor({methodId:s.variant==='raster'?(s.dimension==='3d'?'raster3-surface':'raster2'):'ray'+(s.dimension==='3d'?'3':'2')+'-'+(s.raySearch==='linear'?'linear':'indexed'),family:s.variant==='raycast'?'bvh':'raster'});}
-function occupancyRaster2(q,scene,N){
- const ny=Math.round(.65*N),bounds=bboxOf(scene.outer,2),dx=(bounds.hi[0]-bounds.lo[0])/N,dy=(bounds.hi[1]-bounds.lo[1])/ny,occupied=new Uint8Array(N*ny),visible=new Uint8Array(N*ny),stats={centerTests:0,edgeTests:0,cellVisits:0,queries:0};
- const center=(x,y)=>[bounds.lo[0]+(x+.5)*dx,bounds.lo[1]+(y+.5)*dy],square=(x,y)=>{const a=[bounds.lo[0]+x*dx,bounds.lo[1]+y*dy];return [a,[a[0]+dx,a[1]],[a[0]+dx,a[1]+dy],[a[0],a[1]+dy]];};
- function pointInside(p,poly){stats.centerTests++;let odd=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){stats.edgeTests++;const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])odd=!odd;}return odd;}
- for(let y=0;y<ny;y++)for(let x=0;x<N;x++){const p=center(x,y);occupied[y*N+x]=!pointInside(p,scene.outer)||scene.holes.some(h=>pointInside(p,h))?1:0;}
- const origin=[(q[0]-bounds.lo[0])/dx,(q[1]-bounds.lo[1])/dy],sx=clamp(Math.floor(origin[0]),0,N-1),sy=clamp(Math.floor(origin[1]),0,ny-1);
- function blocked(x,y){stats.cellVisits++;return x<0||x>=N||y<0||y>=ny||occupied[y*N+x]!==0;}
- function sight(tx,ty){stats.queries++;let x=sx,y=sy;if(blocked(x,y))return false;const vx=tx+.5-origin[0],vy=ty+.5-origin[1],ax=Math.sign(vx),ay=Math.sign(vy),stepX=vx?1/Math.abs(vx):Infinity,stepY=vy?1/Math.abs(vy):Infinity;let nextX=vx?((ax>0?x+1:x)-origin[0])/vx:Infinity,nextY=vy?((ay>0?y+1:y)-origin[1])/vy:Infinity;
-  while(x!==tx||y!==ty){if(Math.abs(nextX-nextY)<1e-12){if(blocked(x+ax,y)||blocked(x,y+ay))return false;x+=ax;y+=ay;nextX+=stepX;nextY+=stepY;}else if(nextX<nextY){x+=ax;nextX+=stepX;}else{y+=ay;nextY+=stepY;}if(blocked(x,y))return false;}return true;
+const occupancyGrids=new WeakMap();
+function prepareOccupancyGrid(scene,N){
+ const cached=occupancyGrids.get(scene);
+ if(cached?.N===N)return cached;
+ const ny=Math.round(.65*N),bounds=bboxOf(scene.outer,2),[left,bottom]=bounds.lo;
+ const dx=(bounds.hi[0]-left)/N,dy=(bounds.hi[1]-bottom)/ny;
+ const occupied=new Uint8Array(N*ny),preparationWork={centerTests:0,edgeTests:0};
+ function pointInside(x,y,poly){
+  preparationWork.centerTests++;
+  let odd=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+   preparationWork.edgeTests++;
+   const a=poly[i],b=poly[j];
+   if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])odd=!odd;
+  }
+  return odd;
  }
- const polys=[];for(let y=0;y<ny;y++)for(let x=0;x<N;x++){const k=y*N+x;if(!occupied[k]&&sight(x,y)){visible[k]=1;polys.push(square(x,y));}}
- return {q,N,ny,bounds,dx,dy,occupied,visible,polys,stats,area:polys.length*dx*dy,observerOccupied:!!occupied[sy*N+sx],work:finishSolverWork(emptySolverWork()),preparationWork:{centerTests:stats.centerTests,edgeTests:stats.edgeTests},queryWork:{cellVisits:stats.cellVisits,queries:stats.queries}};
+ for(let y=0;y<ny;y++)for(let x=0;x<N;x++){
+  const px=left+(x+.5)*dx,py=bottom+(y+.5)*dy;
+  occupied[y*N+x]=!pointInside(px,py,scene.outer)||scene.holes.some(h=>pointInside(px,py,h))?1:0;
+ }
+ const grid={N,ny,bounds,dx,dy,occupied,preparationWork};
+ occupancyGrids.set(scene,grid);
+ return grid;
 }
-function rasterComparisonError2(reference,raster){const refs=reference.visits.map(f=>({poly:f.poly,b:bboxOf(f.poly,2)}));let common=0;for(const p of raster.polys){const b=bboxOf(p,2);for(const r of refs){if(b.hi[0]<r.b.lo[0]||r.b.hi[0]<b.lo[0]||b.hi[1]<r.b.lo[1]||r.b.hi[1]<b.lo[1])continue;common+=area(clipConvex(p,r.poly));}}return {common,extra:Math.max(0,raster.area-common),missed:Math.max(0,reference.area-common),xor:Math.max(0,raster.area+reference.area-2*common)};}
+
+function occupancyRaster2(q,scene,N){
+ const grid=prepareOccupancyGrid(scene,N),{ny,bounds,dx,dy,occupied,preparationWork}=grid;
+ const visible=new Uint8Array(N*ny),queryWork={cellVisits:0,queries:0};
+ const [left,bottom]=bounds.lo,ox=(q[0]-left)/dx,oy=(q[1]-bottom)/dy;
+ const sx=clamp(Math.floor(ox),0,N-1),sy=clamp(Math.floor(oy),0,ny-1);
+ function blocked(x,y){
+  queryWork.cellVisits++;
+  return x<0||x>=N||y<0||y>=ny||occupied[y*N+x]!==0;
+ }
+ function sight(tx,ty){
+  queryWork.queries++;
+  let x=sx,y=sy;
+  if(blocked(x,y))return false;
+  const vx=tx+.5-ox,vy=ty+.5-oy,ax=Math.sign(vx),ay=Math.sign(vy);
+  const deltaX=vx?1/Math.abs(vx):Infinity,deltaY=vy?1/Math.abs(vy):Infinity;
+  let nextX=vx?((ax>0?x+1:x)-ox)/vx:Infinity,nextY=vy?((ay>0?y+1:y)-oy)/vy:Infinity;
+  while(x!==tx||y!==ty){
+   if(Math.abs(nextX-nextY)<1e-12){
+    if(blocked(x+ax,y)||blocked(x,y+ay))return false;
+    x+=ax;y+=ay;nextX+=deltaX;nextY+=deltaY;
+   }else if(nextX<nextY){x+=ax;nextX+=deltaX;}
+   else{y+=ay;nextY+=deltaY;}
+   if(blocked(x,y))return false;
+  }
+  return true;
+ }
+ let count=0;
+ for(let y=0;y<ny;y++)for(let x=0;x<N;x++){
+  const k=y*N+x;
+  if(!occupied[k]&&sight(x,y)){visible[k]=1;count++;}
+ }
+ return {...grid,q,visible,stats:{...preparationWork,...queryWork},area:count*dx*dy,
+  observerOccupied:!!occupied[sy*N+sx],work:finishSolverWork(emptySolverWork()),queryWork,
+  get polys(){
+   const cells=[];
+   for(let y=0;y<ny;y++)for(let x=0;x<N;x++)if(visible[y*N+x]){
+    const px=left+x*dx,py=bottom+y*dy;
+    cells.push([[px,py],[px+dx,py],[px+dx,py+dy],[px,py+dy]]);
+   }
+   return cells;
+  }};
+}
+function rasterComparisonError2(reference,raster){
+ const refs=reference.visits.map(f=>({poly:f.poly,b:bboxOf(f.poly,2)}));
+ const {bounds,dx,dy}=raster,[left,bottom]=bounds.lo;
+ let common=0;
+ for(const rect of maskRectangles(raster)){
+  if(!rect.visible)continue;
+  const x0=left+rect.x0*dx,x1=left+rect.x1*dx,y0=bottom+rect.y0*dy,y1=bottom+rect.y1*dy;
+  const poly=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+  for(const r of refs){
+   if(x1<r.b.lo[0]||r.b.hi[0]<x0||y1<r.b.lo[1]||r.b.hi[1]<y0)continue;
+   common+=area(clipConvex(poly,r.poly));
+  }
+ }
+ return {common,extra:Math.max(0,raster.area-common),missed:Math.max(0,reference.area-common),
+  xor:Math.max(0,raster.area+reference.area-2*common)};
+}
 function sampleComparisonData2(s){const ss=effectiveObserverState(s),d=twoData(ss),raster=s.variant==='raster',n=raster?Math.round(8+120*s.phase):Math.round(8+1016*s.phase),key='comparison2'+s.map+keyq(d.q)+(raster?'raster':'ray'+ss.raySearch)+n;return memo(key,()=>{const sample=raster?occupancyRaster2(d.q,d.scene,n):attachSolverWork(()=>sampleRay2(d.q,d.scene,n,ss.raySearch!=='linear')),error=raster?rasterComparisonError2(d.e,sample,d.q):polygonComparison2(d.e,sample,d.q);return {ss,d,sample,error,raster,n};});}
 function sampleComparisonData3(s){
- const ss=sampleComparisonSettings3(effectiveObserverState(s)),d=terrainState(ss),key='comparison3-connected'+ss.sampler+ss.raySearch+s.density+keyq(d.q)+ss.cubeN;
- return memo(key,()=>{let raw,sample,grid=null;
-  if(ss.sampler==='surface-grid'){grid=memo('surfaceTexture'+s.density+ss.cubeN,()=>{const measured=measureSolverWork(()=>prepareTerrainRaster(d.model.tris,ss.cubeN));measured.value.preparationWork=measured.work;return measured.value;});raw=terrainRasterVisibility(d.q,grid);sample=recoverTerrainRaster(raw,grid);sample.queryWork=raw.work;sample.recoveryWork=finishSolverWork(emptySolverWork());sample.work=raw.work;sample.count=grid.cellCount;}
-  else{const prepared=memo('rayAdjacency'+s.density,()=>prepareRayReconstruction(d.model.tris)),query=memo('rayQuery'+s.density,()=>prepareRayQuery(d.base.prepared));raw=traceRayCube(d.q,query,ss.cubeN,ss.raySearch!=='linear');sample=recoverRaySurface(raw,prepared);sample.queryWork=raw.work;sample.recoveryWork=sample.work;sample.work=sumSolverWork(raw.work,sample.work);sample.count=6*ss.cubeN*ss.cubeN;}
-  const misses=grid?0:raw.ids.reduce((n,id)=>n+(id<0),0);
-  return {ss,d,sample,raw,grid,misses,error:surfaceError(getReference(d),sample,d.model.tris)};
- });
+ const ss=sampleComparisonSettings3(effectiveObserverState(s)),d=terrainState(ss);
+ const surface=ss.sampler==='surface-grid',mode=surface?'raster':'raycast';
+ const key=[s.density,...d.q,ss.cubeN,surface?'':ss.raySearch].join(':');
+ let data=labSurfaceResults.get(mode);
+ if(data?.key!==key){
+  const prepared=prepareLabTerrain(d.base);
+  let raw,sample,grid=null;
+  if(surface){
+   grid=labTerrainGrid(d.base,ss.cubeN);
+   raw=(ss.cubeN<32?terrainRasterVisibility:traceLabTerrainRaster)(d.q,grid);
+   sample=recoverLabTerrainRaster(raw,grid,prepared);
+  }else{
+   const trace=ss.cubeN<32?traceRayCube:traceLabRays;
+   raw=trace(d.q,prepared.rays,ss.cubeN,ss.raySearch!=='linear');
+   sample=recoverLabRays(raw,prepared.adjacency);
+   sample.recoveryWork=sample.work;
+   sample.work=sumSolverWork(raw.work,sample.work);
+   sample.count=6*ss.cubeN*ss.cubeN;
+  }
+  sample.queryWork=raw.work;
+  if(surface)sample.recoveryWork=finishSolverWork(emptySolverWork());
+  data={key,sample,raw,grid,misses:surface?0:raw.ids.reduce((n,id)=>n+(id<0),0),
+   error:labSurfaceError(getReference(d),sample,prepared.triangles.length)};
+  labSurfaceResults.set(mode,data);
+ }
+ return {...data,ss,d};
 }
 function sampleRayDirections(data,display){
- if(display==='none')return [];if(data[display+'Directions'])return data[display+'Directions'];const {d,raw}=data,N=raw.N,directions=[];let k=0;
- for(const frame of CUBE_FRAMES)for(let y=0;y<N;y++)for(let x=0;x<N;x++,k++){const hit=raw.ids[k]>=0&&Number.isFinite(raw.depth[k]);if(display==='hits'&&!hit)continue;const dir=cubeDir(frame,-1+(x+.5)*2/N,-1+(y+.5)*2/N),distance=hit?raw.depth[k]:Math.min(...dir.map((v,j)=>Math.abs(v)<1e-12?Infinity:((v>0?[100,70,d.model.roof][j]:0)-d.q[j])/v).filter(t=>t>0));directions.push({p:add(d.q,mul(dir,distance)),id:raw.ids[k],cell:k,hit});}
- return data[display+'Directions']=directions;
+ const {sample,d,raw}=data,N=raw.N;
+ if(display==='none')return null;
+ const key=display==='hits'?display:display+d.model.roof;
+ if(sample.guideKey===key)return sample.guides;
+ const count=display==='hits'?raw.ids.length-data.misses:raw.ids.length;
+ const points=new Float64Array(3*count),cells=new Int32Array(count);
+ const limits=[100,70,d.model.roof];
+ let k=0,index=0;
+ for(const frame of CUBE_FRAMES)for(let y=0;y<N;y++)for(let x=0;x<N;x++,k++){
+  const hit=raw.ids[k]>=0;
+  if(display==='hits'&&!hit)continue;
+  const dir=cubeDir(frame,-1+(x+.5)*2/N,-1+(y+.5)*2/N);
+  let distance=raw.depth[k];
+  if(!hit){
+   for(let j=0;j<3;j++){
+    if(Math.abs(dir[j])<1e-12)continue;
+    const t=((dir[j]>0?limits[j]:0)-d.q[j])/dir[j];
+    if(t>0&&t<distance)distance=t;
+   }
+  }
+  for(let j=0;j<3;j++)points[3*index+j]=d.q[j]+dir[j]*distance;
+  cells[index++]=k;
+ }
+ sample.guideKey=key;
+ return sample.guides={points,cells};
+}
+
+/* Dense guides use bounded native SVG paths. Keep every segment and separate
+ * the two original stroke classes within each consecutive batch. Small sets
+ * keep individual elements for inspection. */
+function sampleRayGuidePaths(cam,q,raw,guides,color){
+ // A tenth of a viewBox unit is below a quarter pixel at 4K.
+ const coord=value=>Math.round(value*10)/10;
+ const [x,y]=cam.p(q),start='M'+coord(x)+' '+coord(y)+'L';
+ const p=[0,0,0],output=[];
+ for(let i=0;i<guides.cells.length;){
+  const end=Math.min(i+128,guides.cells.length),paths=['',''],counts=[0,0];
+  for(;i<end;i++){
+   for(let j=0;j<3;j++)p[j]=guides.points[3*i+j];
+   const [x1,y1]=cam.p(p);
+   if(!Number.isFinite(x1)||!Number.isFinite(y1))continue;
+   const group=raw.ids[guides.cells[i]]<0?0:1;
+   paths[group]+=start+coord(x1)+' '+coord(y1);
+   counts[group]++;
+  }
+  for(let group=0;group<2;group++)if(paths[group]){
+   output.push(`<path data-inspection-guide="true" data-line-role="sample-ray" data-ray-count="${counts[group]}" d="${paths[group]}" fill="none" stroke="${color}" stroke-width=".7" stroke-opacity="${group?.4:.12}"/>`);
+  }
+ }
+ return output.join('');
 }
 function sampleDisplayGroups(sample,tris,hidden=false){
- if(!sample.displayGroups)sample.displayGroups=raySurfaceDisplayGroups(sample);
+ if(!sample.displayGroups)sample.displayGroups=labDisplaySurfaceGroups(sample);
  if(!hidden)return sample.displayGroups;
  // Complement the visible rings on each original face using an even-odd path.
  // This is display only; physical hidden area remains total minus visible area.
@@ -1559,10 +2187,28 @@ function surfaceTextureOutlineEdges(loops,raw,grid,hidden=false){
 }
 
 function sampleComparisonWork(s){if(s.dimension==='3d'){const {d,sample,grid}=sampleComparisonData3(s);return {scope:'query + output',entries:[{name:'Terrain: shadow cuts',work:sumSolverWork(getReference(d).work,s.hidden?d.hiddenWork:null)},{name:s.variant==='raster'?'Terrain grid traversal':'Rays + connected recovery',work:sumSolverWork(sample.work,s.hidden?sample.hiddenWork:null)}],...(grid?{gridPreparation:{nodeCandidates:grid.stats.nodeCandidates,nodeWrites:grid.stats.nodeWrites},gridTraversal:sample.stats}:{})};}const {d,sample,raster}=sampleComparisonData2(s);if(!raster&&s.metric==='walls'){const coverage=memo('comparisonCoverage'+s.map+keyq(d.q)+sample.n,()=>attachSolverWork(()=>wallCoverage(d.q,d.v,sample)));return {scope:'query + output',entries:[{name:'Continuous wall geometry',work:d.v.work},{name:'Ray wall assignment',work:sumSolverWork(sample.work,coverage.work)}]};}return {scope:'query + output',entries:[{name:'Triangle expansion',work:d.e.work},{name:raster?'Grid traversal (cell visits below)':s.raySearch==='linear'?'Raycast · linear scan':'Raycast · bounding-volume hierarchy',work:sample.work}],...(raster?{gridPreparation:sample.preparationWork,gridTraversal:sample.queryWork}:{})};}
+function drawOccupancyGrid(sample,m,warm){
+ const {N,ny,bounds,dx,dy,occupied,visible}=sample;
+ const [left,bottom]=bounds.lo;
+ const point=(x,y)=>m.p([left+x*dx,bottom+y*dy]);
+ for(let y=0;y<ny;y++){
+  for(let x=0;x<N;){
+   const start=x,k=y*N+x,wall=occupied[k],seen=visible[k];
+   while(++x<N&&occupied[y*N+x]===wall&&visible[y*N+x]===seen){}
+   const [x0,y0]=point(start,y+1),[x1,y1]=point(x,y);
+   const fill=wall?'#98a5ad':seen?rgba(warm,.42):'none';
+   ctx.raw(`<rect data-grid-cell="${k}" data-cell-count="${x-start}" data-visible="${seen}" data-occupied="${wall}" x="${svgNumber(x0)}" y="${svgNumber(y0)}" width="${svgNumber(x1-x0)}" height="${svgNumber(y1-y0)}" fill="${fill}"/>`);
+  }
+ }
+ ctx.beginPath();
+ for(let x=0;x<=N;x++){ctx.moveTo(...point(x,0));ctx.lineTo(...point(x,ny));}
+ for(let y=0;y<=ny;y++){ctx.moveTo(...point(0,y));ctx.lineTo(...point(N,y));}
+ ctx.strokeStyle='#a3b2bd';ctx.lineWidth=.45;ctx.stroke();
+}
 function drawSampleComparison2(s){const {d,sample:sa,error,raster,n}=sampleComparisonData2(s),warm=samplerDisplayColor(s),g=G(s),m=mapFit({x:g.x+10,y:60,w:g.w-20,h:780},d.scene.outer);stepCount=raster?121:1017;mapBase(d.scene,m,{grid:!raster});hitTargets.push({kind:'map2',rect:m.rect,point:m.p(d.q),m});
  ctx.raw(`<g data-sample-comparison="2d" data-method="${raster?'raster':'raycast'}" data-sample-count="${raster?n*sa.ny:n}" data-drawn-count="${raster?n*sa.ny:n}">`);
  poly2(d.v.polygon.map(m.p),rgba(C.teal,.21));
- if(raster){for(let y=0;y<sa.ny;y++)for(let x=0;x<n;x++){const k=y*n+x,a=[sa.bounds.lo[0]+x*sa.dx,sa.bounds.lo[1]+y*sa.dy],p=[a,[a[0]+sa.dx,a[1]],[a[0]+sa.dx,a[1]+sa.dy],[a[0],a[1]+sa.dy]];ctx.raw(`<g data-grid-cell="${k}" data-visible="${sa.visible[k]}" data-occupied="${sa.occupied[k]}">`);poly2(p.map(m.p),sa.occupied[k]?'#98a5ad':sa.visible[k]?rgba(warm,.42):null,'#a3b2bd',.45);ctx.raw('</g>');}}
+ if(raster)drawOccupancyGrid(sa,m,warm);
  else{poly2(sa.polygon.map(m.p),rgba(warm,.32),warm,3);sa.hits.forEach((h,i)=>{ctx.raw(`<g data-sample-ray="${i}">`);line2(m.p(d.q),m.p(h.p),rgba(warm,.4),1);ctx.raw('</g>');});}
  poly2(d.v.polygon.map(m.p),null,C.teal,3);if(raster){for(const hole of d.scene.holes)poly2(hole.map(m.p),null,C.wallLine,2);if(s.labels)d.scene.holes.forEach((h,i)=>{const p=m.p(centroid(h));text2(String(i+1),p[0],p[1]+8,22,C.ink,'center');});}else walls(d.scene,m,s.labels);observer2(d.q,m,s.labels);ctx.raw('</g>');
  let coverage=null;let metrics=[['Visible area',number(d.e.area)+' m²',number(sa.area)+' m²',pct(sa.area,d.e.area)],['Mismatched area','0 m²',number(error.xor)+' m²',number(error.xor/d.e.area*100,2)+'%']];
@@ -1589,13 +2235,67 @@ function terrainTextureInset(raw,grid,g,warm){
  const qp=[x+(raw.q[0]-grid.bounds.lo[0])/(grid.bounds.hi[0]-grid.bounds.lo[0])*w,y+h-(raw.q[1]-grid.bounds.lo[1])/(grid.bounds.hi[1]-grid.bounds.lo[1])*h];dot2(qp,5,C.purple,'#fff');ctx.raw('</g>');
 }
 function drawSampleComparison3(s){
- const data=sampleComparisonData3(s),{ss,d,sample:sa,raw,grid,error:err}=data,ref=getReference(d),total=d.model.tris.reduce((a,t)=>a+area3(t),0),g=G(s),surface=!!grid,warm=samplerDisplayColor(s),directions=surface?[]:sampleRayDirections(data,s.rayDisplay);stepCount=sampleResolutionRange(s).max-sampleResolutionRange(s).min+1;
- if(s.hidden&&!d.hidden){const h=measureSolverWork(()=>complementSurfaces(d.model.tris,ref.surfaces));d.hidden=h.value;d.hiddenWork=h.work;}
- const green=s.hidden?d.hidden:ref.surfaces,groups=sampleDisplayGroups(sa,d.model.tris,s.hidden);if(!d.referenceOutline)d.referenceOutline=outlineEdges(ref.surfaces);if(s.hidden&&!d.hiddenOutline)d.hiddenOutline=outlineEdges(d.hidden);const greenEdges=s.hidden?d.hiddenOutline:d.referenceOutline,outlineKey=s.hidden?'hiddenOutline':'outline';if(!sa[outlineKey]){const loops=groups.flatMap(group=>group.loops);sa[outlineKey]=surface?surfaceTextureOutlineEdges(loops,raw,grid,s.hidden):outlineEdges(loops);}if(!sa.outline){const loops=sampleDisplayGroups(sa,d.model.tris).flatMap(group=>group.loops);sa.outline=surface?surfaceTextureOutlineEdges(loops,raw,grid):outlineEdges(loops);}
- const overlay=s.compare==='overlay',rects=overlay?[g]:[{x:g.x,y:70,w:g.w/2-12,h:760},{x:g.x+g.w/2+12,y:70,w:g.w/2-12,h:760}],cams=rects.map(r=>cameraMain(s,r,[50,35,12]));ctx.raw(`<g data-sample-comparison="3d" data-method="${s.variant}" data-grid-side="${raw.N}" data-grid-rows="${surface?grid.ny:raw.N}" data-sample-count="${sa.count}" data-drawn-count="${surface?grid.cellCount:directions.length}" data-misses="${data.misses}" data-ray-display="${s.rayDisplay}" data-ray-count="${surface?0:sa.count}">`);
- for(let i=0;i<cams.length;i++){const cam=cams[i],which=overlay?'both':i===0?'green':'orange',faces=terrainFaces(d.model),lines=s.wire?groundLines(d.model):[];if(which!=='orange'){if(s.shadowEnvelope)faces.push(...shadowEnvelopeLines(d,d.referenceOutline,C.teal));faces.push(...green.map(f=>({poly:f.poly,color:C.green,alpha:overlay?.45:1,bias:.00015,paintLayer:overlay&&!s.shadowEnvelope?1:0})));lines.push(...segLines(greenEdges,C.teal,3));}if(which!=='green'){if(s.shadowEnvelope)faces.push(...shadowEnvelopeLines(d,sa.outline,warm));faces.push(...groups.map(group=>({poly:d.model.tris[group.owner],loops:group.loops,color:warm,shade:false,alpha:overlay?.34:1,bias:.0003,paintLayer:overlay&&!s.shadowEnvelope?2:0})));if(s.sampleWire)lines.push(...segLines(uniqueEdges(sa.polys.map(f=>f.poly)),warm,1,.45));lines.push(...segLines(sa[outlineKey],warm,2));if(!surface)lines.push(...directions.map(r=>({a:d.q,b:r.p,color:warm,alpha:r.hit?.4:.12,width:.7,occlude:false,role:'sample-ray',sampleCell:r.cell})));}drawWorld(cam,faces,lines);observer3(d.q,cam,d.q[2]-ss.eye,s.labels);register(d.q,cam,'terrain');}
- if(surface)terrainTextureInset(raw,grid,g,warm);else sampleCubeInset(raw,g,warm);ctx.raw('</g>');const a=s.hidden?total-ref.area:ref.area,b=s.hidden?total-sa.area:sa.area;
- setPanel({sampleColor:warm,title:surface?'Classify the terrain texture':s.hidden?'Compare hidden terrain surface':'Compare visible terrain surface',metrics:[[s.hidden?'Hidden terrain area':'Visible terrain area',number(a)+' m²',number(b)+' m²',pct(b,a)],['Mismatched surface','0 m²',number(err.xor)+' m²',number(err.xor/ref.area*100,2)+'% of visible ref.']],body:surface?['Sample terrain elevations on a regular XY grid. Each texel center is classified through the resulting bilinear height surface.','Cached coefficients test the whole sightline in each crossed cell. Every texel is draped onto the original terrain.']:[s.raySearch==='linear'?'Trace each angular direction against all triangles; retain its first terrain hit.':'A bounding-volume hierarchy finds each angular direction’s first terrain hit.','Each hit seeds a connected terrain sheet in its angular cell. Recovery crosses shared edges and stops at silhouette folds.'],stats:surface?[['Terrain texture · N columns',`N = ${grid.N} · ${grid.N} × ${grid.ny} texels`],['Texels classified',number(grid.cellCount,0)],['Texel size in plan',`${number(grid.dx,2)} × ${number(grid.dy,2)} m`],['Grid queries / crossed cells',`${number(raw.stats.queries,0)} / ${number(raw.stats.cellVisits,0)}`],['Height comparisons',number(raw.stats.heightTests,0)]]:[['Rays calculated · R = 6N²',number(sa.count,0)],['Camera-grid side · N',`${raw.N} × ${raw.N} centers per face`],['Rays drawn / terrain hits',`${number(directions.length,0)} / ${number(sa.count-data.misses,0)}`],['Sky directions',number(data.misses,0)]],legend:[[C.teal,'Terrain: shadow cuts'],[warm,surface?'Center-classified surface texels':'Connected first-hit terrain sheets'],['#e7edf0',surface?'Hidden terrain texels':'Sky / unsampled angular cells']],note:surface?'N counts terrain columns. Visible and hidden texels partition the sloping terrain. Interpolated relief and center classification introduce error.':'R counts rays; N is the face side. Drawing changes no calculations. Finite sampling can miss or overextend visibility boundaries.'});
+ const data=sampleComparisonData3(s),{ss,d,sample:sa,raw,grid,error:err}=data;
+ const ref=getReference(d),prepared=prepareLabTerrain(d.base),total=prepared.area;
+ const g=G(s),surface=!!grid,warm=samplerDisplayColor(s);
+ const directions=surface?null:sampleRayDirections(data,s.rayDisplay),drawn=directions?.cells.length||0;
+ const {min,max}=sampleResolutionRange(s);
+ stepCount=max-min+1;
+ if(s.hidden&&!d.hidden){
+  const h=measureSolverWork(()=>complementSurfaces(d.model.tris,ref.surfaces));
+  d.hidden=h.value;d.hiddenWork=h.work;
+ }
+ const green=s.hidden?d.hidden:ref.surfaces,groups=sampleDisplayGroups(sa,d.model.tris,s.hidden);
+ if(!d.referenceOutline)d.referenceOutline=outlineEdges(ref.surfaces);
+ if(s.hidden&&!d.hiddenOutline)d.hiddenOutline=outlineEdges(d.hidden);
+ const greenEdges=s.hidden?d.hiddenOutline:d.referenceOutline,outlineKey=s.hidden?'hiddenOutline':'outline';
+ if(!sa[outlineKey]){
+  const loops=groups.flatMap(group=>group.loops);
+  sa[outlineKey]=surface?surfaceTextureOutlineEdges(loops,raw,grid,s.hidden):outlineEdges(loops);
+ }
+ if(s.shadowEnvelope&&!sa.outline){
+  const loops=sampleDisplayGroups(sa,d.model.tris).flatMap(group=>group.loops);
+  sa.outline=surface?surfaceTextureOutlineEdges(loops,raw,grid):outlineEdges(loops);
+ }
+ if(s.sampleWire&&!sa.wireEdges){
+  const sampled=surface?recoverTerrainRaster(raw,prepareTerrainRaster(d.base,raw.N)):
+    recoverRaySurface(raw,prepared.adjacency);
+  sa.wireEdges=uniqueEdges(sampled.polys.map(f=>f.poly));
+ }
+ const overlay=s.compare==='overlay';
+ const rects=overlay?[g]:[{x:g.x,y:70,w:g.w/2-12,h:760},{x:g.x+g.w/2+12,y:70,w:g.w/2-12,h:760}];
+ const cams=rects.map(r=>cameraMain(s,r,[50,35,12]));
+ ctx.raw(`<g data-sample-comparison="3d" data-method="${s.variant}" data-grid-side="${raw.N}" data-grid-rows="${surface?grid.ny:raw.N}" data-sample-count="${sa.count}" data-drawn-count="${surface?grid.cellCount:drawn}" data-misses="${data.misses}" data-ray-display="${s.rayDisplay}" data-ray-count="${surface?0:sa.count}">`);
+ for(let i=0;i<cams.length;i++){
+  const cam=cams[i],faces=terrainFaces(d.base),lines=s.wire?groundLines(d.base):[];
+  let guides='';
+  if(overlay||i===0){
+   if(s.shadowEnvelope)for(const face of shadowEnvelopeLines(d,d.referenceOutline,C.teal))faces.push(face);
+   for(const f of green)faces.push({poly:f.poly,color:C.green,alpha:overlay?.45:1,bias:.00015,
+    paintLayer:overlay&&!s.shadowEnvelope?1:0});
+   for(const edge of greenEdges)lines.push({a:edge[0],b:edge[1],color:C.teal,width:3,alpha:1});
+  }
+  if(overlay||i===1){
+   if(s.shadowEnvelope)for(const face of shadowEnvelopeLines(d,sa.outline,warm))faces.push(face);
+   for(const group of groups)faces.push({poly:d.model.tris[group.owner],loops:group.loops,color:warm,shade:false,
+    alpha:overlay?.34:1,bias:.0003,paintLayer:overlay&&!s.shadowEnvelope?2:0});
+   if(s.sampleWire)for(const edge of sa.wireEdges)lines.push({a:edge[0],b:edge[1],color:warm,width:1,alpha:.45});
+   for(const edge of sa[outlineKey])lines.push({a:edge[0],b:edge[1],color:warm,width:2});
+   if(drawn>4096)guides=sampleRayGuidePaths(cam,d.q,raw,directions,warm);
+   else for(let j=0;j<drawn;j++){
+    const k=directions.cells[j],b=Array.from(directions.points.subarray(j*3,j*3+3));
+    lines.push({a:d.q,b,color:warm,alpha:raw.ids[k]>=0?.4:.12,width:.7,occlude:false,role:'sample-ray',sampleCell:k});
+   }
+  }
+  drawWorld(cam,faces,lines,guides);
+  observer3(d.q,cam,d.q[2]-ss.eye,s.labels);
+  register(d.q,cam,'terrain');
+ }
+ if(surface)terrainTextureInset(raw,grid,g,warm);
+ else sampleCubeInset(raw,g,warm);
+ ctx.raw('</g>');
+ const a=s.hidden?total-ref.area:ref.area,b=s.hidden?total-sa.area:sa.area;
+ setPanel({sampleColor:warm,title:surface?'Classify the terrain texture':s.hidden?'Compare hidden terrain surface':'Compare visible terrain surface',metrics:[[s.hidden?'Hidden terrain area':'Visible terrain area',number(a)+' m²',number(b)+' m²',pct(b,a)],['Mismatched surface','0 m²',number(err.xor)+' m²',number(err.xor/ref.area*100,2)+'% of visible ref.']],body:surface?['Sample terrain elevations on a regular XY grid. Each texel center is classified through the resulting bilinear height surface.','Cached coefficients test the whole sightline in each crossed cell. Every texel is draped onto the original terrain.']:[s.raySearch==='linear'?'Trace each angular direction against all triangles; retain its first terrain hit.':'A bounding-volume hierarchy finds each angular direction’s first terrain hit.','Each hit seeds a connected terrain sheet in its angular cell. Recovery crosses shared edges and stops at silhouette folds.'],stats:surface?[['Terrain texture · N columns',`N = ${grid.N} · ${grid.N} × ${grid.ny} texels`],['Texels classified',number(grid.cellCount,0)],['Texel size in plan',`${number(grid.dx,2)} × ${number(grid.dy,2)} m`],['Grid queries / crossed cells',`${number(raw.stats.queries,0)} / ${number(raw.stats.cellVisits,0)}`],['Height comparisons',number(raw.stats.heightTests,0)]]:[['Rays calculated · R = 6N²',number(sa.count,0)],['Camera-grid side · N',`${raw.N} × ${raw.N} centers per face`],['Rays drawn / terrain hits',`${number(drawn,0)} / ${number(sa.count-data.misses,0)}`],['Sky directions',number(data.misses,0)]],legend:[[C.teal,'Terrain: shadow cuts'],[warm,surface?'Center-classified surface texels':'Connected first-hit terrain sheets'],['#e7edf0',surface?'Hidden terrain texels':'Sky / unsampled angular cells']],note:surface?'N counts terrain columns. Visible and hidden texels partition the sloping terrain. Interpolated relief and center classification introduce error.':'R counts rays; N is the face side. Drawing changes no calculations. Finite sampling can miss or overextend visibility boundaries.'});
 }
 
 function drawSampleComparison(s){return s.dimension==='3d'?drawSampleComparison3(s):drawSampleComparison2(s);}
@@ -2121,7 +2821,7 @@ function drawBenchmarkSelection(rect){
 }
 function drawCost(s){benchmarkPlots.clear();benchmarkHover=null;if(benchmarkViewSuite()==='detail'){drawTerrainDetailCost(s);return;}const g=G(s),gap=28,w=(g.w-gap)/2;stepCount=1;ctx.raw(`<g data-benchmark-dashboard="true" data-benchmark-view="${benchmarkUI.benchView}" data-time-scale="${benchmarkUI.timeScale}" data-error-scale="${benchmarkUI.errorScale}" data-interval="${benchmarkUI.interval}">`);const livePending=benchmarkUI.interval==='ci'&&benchResult?.status==='running',subtitle=livePending?'Median intervals appear after completion or Stop; each finished test updates the points.':benchmarkUI.interval==='ci'?'Whiskers: 95% bootstrap uncertainty in the median · conditional on these geometries and completed cases':'Whiskers: quartiles across observers · spatial variation, separate from uncertainty in the median';const draw=benchmarkUI.benchView==='xy'?benchmarkXY:benchmarkOverview;draw({x:g.x,y:0,w,h:681},'plan','2D plans');draw({x:g.x+w+gap,y:0,w,h:681},'terrain','3D terrain');line2([g.x,691],[g.x+g.w,691],C.wallLine,1);benchmarkAuxiliary({x:g.x,y:701,w,h:93},'viewport','Observer viewport');benchmarkAuxiliary({x:g.x+w+gap,y:701,w,h:93},'buildings','Ground, roofs and walls');drawBenchmarkSelection({x:g.x,y:803,w:g.w,h:88});ctx.raw('</g>');setPanel({title:'Benchmarks',body:[subtitle],legend:[],stats:[]});}
 function renderBenchmarkTable(){
- if(!benchResult||state.scene!=='cost'){$('benchmarkTable').innerHTML='';return;}if(benchmarkViewSuite()==='detail'){renderTerrainDetailBenchmarkTable();return;}const b=benchResult,range=st=>st?.median===null?'—':`${benchmarkValue(st.median)} (${benchmarkValue(st.q1)}–${benchmarkValue(st.q3)})`,ci=st=>st?.ci95?`${benchmarkValue(st.ci95.low)}–${benchmarkValue(st.ci95.high)}`:'Pending / insufficient cases',groups=['plan','terrain','viewport','buildings'];
+ if(!benchResult||state.scene!=='cost'){replaceHTML($('benchmarkTable'),'');return;}if(benchmarkViewSuite()==='detail'){renderTerrainDetailBenchmarkTable();return;}const b=benchResult,range=st=>st?.median===null?'—':`${benchmarkValue(st.median)} (${benchmarkValue(st.q1)}–${benchmarkValue(st.q3)})`,ci=st=>st?.ci95?`${benchmarkValue(st.ci95.low)}–${benchmarkValue(st.ci95.high)}`:'Pending / insufficient cases',groups=['plan','terrain','viewport','buildings'];
  replaceHTML($('benchmarkTable'),`<p class="small">${benchmarkUI.benchSource==='saved'?'Saved statistics':'Browser results'} · ${number(b.completed,0)} completed tests. Median (observer quartiles); the 95% median interval comes from 1,000 resamples within each geometry. Unfinished or failed cases are excluded. Saved Node/V8 timings and live browser timings are separate datasets. Empty viewport reference areas have an undefined relative mismatch; their timing remains valid. <a id="benchmarkRawLink" href="#">Export results</a>.</p>`+groups.map(domain=>`<h3>${{plan:'2D plan area',terrain:'Full terrain surface',viewport:'Observer viewport surface',buildings:'Building receivers'}[domain]}</h3><table><thead><tr><th>Demonstration / method</th><th>Resolution</th><th>Successful / failed</th><th>Query ms</th><th>Recovery ms</th><th>Total ms</th><th>95% median interval · ms</th><th>Mismatch %</th><th>Median tests / polygon clips</th></tr></thead><tbody>${benchmarkRows(domain).map(r=>`<tr><td><a ${benchmarkLink(r)}>${escapeHTML(r.label)}</a></td><td>${benchmarkResolution(r)}</td><td>${r.sampleCount??r.stats.total.n} / ${r.failureCount||0}</td><td>${range(r.stats.query)}</td><td>${range(r.stats.recovery)}</td><td>${range(r.stats.total)}</td><td>${ci(r.stats.total)}</td><td>${r.error===null?r.domain==='viewport'?'Undefined · empty viewport':'Not cross-checked':range(r.stats.error)}<br>n=${r.stats.error.n}${r.emptyReferenceCount?' · '+r.emptyReferenceCount+' empty':''}</td><td>${number(r.work.geometricTests,0)} / ${number(r.work.polygonClips,0)}</td></tr>`).join('')}</tbody></table>`).join('')+`<details><summary>Results by geometry and preparation costs</summary><p>Each measured method/resolution retains its own observer count and provenance. Original statistics use 50 observers per main-suite geometry; selective additions use 25 paired prefix observers. A stopped run can have uneven coverage; per-row successful and failed counts are retained. Preparation is measured separately where reusable. Plan triangulations are embedded; footprint and occupancy-grid preparation repeat inside their query timers.</p>${(b.geometrySummaries||[]).map(group=>`<h3>${escapeHTML(group.geometry)}</h3><table><thead><tr><th>Method</th><th>Resolution</th><th>Successful / failed</th><th>Total ms (quartiles)</th><th>Mismatch % (quartiles)</th></tr></thead><tbody>${group.rows.map(r=>`<tr><td>${escapeHTML(r.label)}</td><td>${benchmarkResolution(r)}</td><td>${r.sampleCount} / ${r.failureCount}</td><td>${range(r.stats.total)}</td><td>${range(r.stats.error)} · n=${r.stats.error.n}</td></tr>`).join('')}</tbody></table>`).join('')}<table><thead><tr><th>Geometry</th><th>Preparation</th><th>Cases</th><th>ms (quartiles)</th></tr></thead><tbody>${(b.preparationStats||benchmarkPreparationStats(b.preparation||[])).map(p=>`<tr><td>${escapeHTML(p.geometry)}</td><td>${escapeHTML(p.label)}</td><td>${p.sampleCount}</td><td>${range(p.stats)}</td></tr>`).join('')}</tbody></table><p>${escapeHTML(benchmarkProvenance())}. ${escapeHTML(JSON.stringify(b.metadata?.environment||{}))}. Source fingerprint: <code>${escapeHTML(b.metadata?.sourceFingerprint||'unavailable')}</code>.</p></details>${b.failedCases?`<p class="notice">${b.failedCases} individual tests failed. Their diagnostics are retained in the export; they contribute no fabricated zero timings.</p>`:''}`);$('benchmarkRawLink').onclick=e=>{e.preventDefault();benchmarkExport();};
 }
 
@@ -2324,7 +3024,12 @@ function updateWorkReference(s){
 /* Module: panels */
 /* Explanations are HTML: selectable, accessible and independent of the diagram. */
 function escapeHTML(s){return escapeSVG(s);}
-function replaceHTML(el,html){if(el.innerHTML!==html)el.innerHTML=html;}
+const panelMarkup=new WeakMap();
+function replaceHTML(el,html){
+  if(panelMarkup.get(el)===html)return;
+  el.innerHTML=html;
+  panelMarkup.set(el,html);
+}
 function panelBody(p){
   const metrics=p.metrics?'<div class="panel-metrics"><div class="metric-head"><span>Geometry</span><span>Samples</span></div>'+p.metrics.map(([name,geo,sampled,error])=>'<section class="metric-group"><h3>'+escapeHTML(name)+'</h3><div class="metric-values"><strong class="geometric">'+escapeHTML(geo)+'</strong><strong class="sampled">'+escapeHTML(sampled)+'</strong></div><p class="difference">Difference: '+escapeHTML(error)+'</p></section>').join('')+'</div>':'';
   const steps=p.steps?'<ol class="steps">'+p.steps.map((t,i)=>'<li'+(i===p.active?' aria-current="step"':'')+'><span class="step-index" data-svg-box>'+String(i+1)+'</span><span>'+escapeHTML(t)+'</span></li>').join('')+'</ol>':'';
@@ -2342,6 +3047,10 @@ function drawPanel(s){
   replaceHTML($('explanationFooter'),stats+'<div class="legend">'+(p.legend||[]).map(([col,t])=>'<span class="legend-item"><span class="swatch" style="--swatch:'+escapeHTML(col)+'" data-svg-box></span><span>'+escapeHTML(t)+'</span></span>').join('')+'</div>'+(p.note?'<p class="panel-note">'+escapeHTML(p.note)+'</p>':''));
 }
 function updateLive(){const p=panelData,text=(p.body||[]).map(t=>'<p>'+escapeHTML(t)+'</p>').join('');const table=p.metrics?'<table><thead><tr><th>Displayed quantity</th><th>Geometry</th><th>Samples</th><th>Difference</th></tr></thead><tbody>'+p.metrics.map(r=>'<tr>'+r.map(v=>'<td>'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'';replaceHTML($('liveText'),text+table);}
+function syncPhaseDisplay(){
+  $('phase').value=state.phase;
+  $('phaseVal').textContent=Math.round(state.phase*100)+'%';
+}
 function render(overrides={}){
   window.lastLabError=null;
   const s={...state,...overrides};if(s.scene==='cost')s.panel=false;hitTargets=[];panelData={};$('presentation').classList.toggle('benchmark-page',s.scene==='cost');$('presentation').classList.toggle('sampling-page',s.scene==='metrics');
@@ -2354,7 +3063,7 @@ function render(overrides={}){
   try{({shadows:drawShadows,expansion:drawExpansion,subtraction:drawWallShadows,air:drawAir,terrain:drawTerrain,projection:drawProjection,metrics:drawMetrics,cost:drawCost}[s.scene])(s);addWorkReadouts(s);drawPanel(s);}
   catch(e){console.error(e);setPanel({title:'This configuration could not be completed',body:[e.message,'Reset the scene or use a coarser terrain mesh.'],legend:[],note:'The calculation stopped; the result is incomplete.'});drawPanel(s);$('status').textContent=e.message;window.lastLabError=e.message;}
   ctx.commit();if(s.scene==='cost')benchmarkRefreshInspection();
-  if(!exporting){syncTransport();updateLive();updateWorkReference(s);if(s.scene==='cost')renderBenchmarkTable();$('phase').value=state.phase;$('phaseVal').textContent=Math.round(state.phase*100)+'%';}
+  if(!exporting){syncTransport();updateLive();updateWorkReference(s);if(s.scene==='cost')renderBenchmarkTable();syncPhaseDisplay();}
 }
 
 
@@ -2473,12 +3182,18 @@ async function saveGraphic(format){
 
 /* Module: runtime */
 function validate(input){const out=structuredClone(DEFAULT);for(const k of Object.keys(DEFAULT))if(Object.hasOwn(input,k))out[k]=input[k];for(const key of ['panel','wire','airWire','cuts','history','labels','inset','construction','hidden','shadowEnvelope','showRays','sampleWire','viewFocus','candidates'])out[key]=!!out[key];if(!Object.hasOwn(input,'panel'))out.panel=true;const ranges={phase:[0,1],duration:[2,60],map:[0,2],eye:[1,30],yaw:[-1000000,1000000],pitch:[MIN_CAMERA_ELEVATION,MAX_CAMERA_ELEVATION],ceiling:[.25,10],zoom:[.5,4],airOpacity:[.1,1],face:[-1,1000],rays:[8,4096],sampleBudget:[140,65536],cubeN:[2,256],rayDrawLimit:[16,2048],opening:[0,1000],rasterN:[8,192]};for(const [k,[a,b]] of Object.entries(ranges)){const v=Number(out[k]);out[k]=Number.isFinite(v)?clamp(v,a,b):DEFAULT[k];if(['map','rays','cubeN','opening','face','rasterN','sampleBudget','rayDrawLimit'].includes(k))out[k]=Math.round(out[k]);}out.yaw=cameraAzimuth(out.yaw);if(out.scene==='events'){out.scene='expansion';out.variant='expand';}if(out.scene==='cost'&&out.variant==='raster'){out.scene='metrics';out.variant=out.dimension==='3d'?'raycast':'raster';out.phase=out.dimension==='3d'?(clamp(out.cubeN,2,256)-2)/254:(clamp(out.rasterN,8,128)-8)/120;}if(!MODES.some(m=>m.id===out.scene))out.scene=DEFAULT.scene;if(out.scene==='expansion'&&out.variant==='subtract')out.scene='subtraction';if(out.scene==='shadows'&&!Object.hasOwn(input,'construction')&&['surface','isovist'].includes(input.variant))out.construction=false;if(out.variant==='result'&&['air','terrain','projection'].includes(out.scene)){out.variant=out.scene==='air'?'expand':out.scene==='terrain'?'all':'accumulate';out.phase=1;}if(out.scene==='metrics'&&['still','rays','move'].includes(out.variant))out.variant=out.sampler==='raster'&&out.dimension==='2d'?'raster':'raycast';if(out.scene==='metrics'&&out.variant==='depth')out.variant=out.dimension==='3d'?'raycast':'raster';if(!Object.hasOwn(input,'rayDisplay')&&input.showRays===false)out.rayDisplay='none';const mode=MODES.find(m=>m.id===out.scene);if(!mode.variants.some(v=>v[0]===out.variant))out.variant=mode.variants[0][0];for(const [key,opts] of Object.entries({dimension:['2d','3d'],metric:['area','walls'],raySearch:['indexed','linear'],rayDisplay:['all','hits','none'],density:['coarse','regular','fine'],compare:['overlay','side'],sampler:['surface','angular','raster'],locator:['index','scan'],order:['near','spiral','mesh','shuffle'],exportMode:['graphics','panel']}))if(!opts.includes(out[key]))out[key]=DEFAULT[key];if(!Array.isArray(out.q2)||out.q2.length!==2||!out.q2.every(Number.isFinite)||!validObserver(out.q2,SCENES[out.map]))out.q2=[...SCENES[out.map].observer];if(!Array.isArray(out.qxy)||out.qxy.length!==2||!out.qxy.every(Number.isFinite))out.qxy=[9,35];out.qxy=[clamp(out.qxy[0],1,99),clamp(out.qxy[1],1,69)];if(!Array.isArray(out.light)||out.light.length!==3||!out.light.every(Number.isFinite))out.light=[...DEFAULT.light];out.face=out.face<0?-1:Math.min(out.face,baseModel(out).tris.length-1);out.light=[clamp(out.light[0],1,99),clamp(out.light[1],1,69),clamp(out.light[2],2,40)];return out;}
-function stopPlaying(){playing=false;$('play').textContent='Play';}
+let playbackFrame=0;
+function stopPlaying(){
+ playing=false;
+ if(playbackFrame)cancelAnimationFrame(playbackFrame);
+ playbackFrame=0;
+ $('play').textContent='Play';
+}
 function setScene(id){if(exporting||benchmarkBusy||!MODES.some(m=>m.id===id))return;captureSharedScene(state);savedTabs.set(state.scene,structuredClone(state));const common={panel:state.panel,exportMode:state.exportMode};state=savedTabs.has(id)?structuredClone(savedTabs.get(id)):{...structuredClone(DEFAULT),scene:id,variant:MODES.find(m=>m.id===id).variants[0][0]};Object.assign(state,common);applySharedScene(state);stopPlaying();history.replaceState(null,'','#'+id);buildControls();buildDocs();render();}
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
 async function quickChecks(){stopPlaying();$('status').textContent='Running independent geometry checks…';await pauseUI();try{let n=0;for(let map=0;map<3;map++)for(let i=0;i<12;i++){const q=[8+(i*19%84),4+(i*13%56)];if(!validObserver(q,SCENES[map]))continue;const a=expandVector2(q,SCENES[map]),b=visibility(q,SCENES[map]);if(Math.abs(a.area-b.area)>1e-5)throw Error('2D area disagreement');n++;}const d=terrainState({...DEFAULT}),ref=getReference(d),beams=getBeams(d);if(Math.abs(ref.area-beams.surfaceArea)>1e-4)throw Error('3D beam/clipping disagreement');const a=rayCube(d.q,d.base.prepared,12,true),b=rasterCube(d.q,d.model.tris,12);let diff=0;for(let i=0;i<a.ids.length;i++)if(a.ids[i]!==b.ids[i])diff++;if(diff)throw Error('Ray/raster winning-face disagreement: '+diff);const pc=projector(d.q),right=pc.point(add(d.q,add(mul(pc.f,10),mul(pc.r,2))));if(Math.abs(right[0]-.2)>1e-9)throw Error('Camera handedness test failed');$('status').textContent=`Passed: ${n} 2D area comparisons; 3D beam/clip area agreement; ${a.ids.length} ray/raster winners; camera handedness. These are checks, not an exact-arithmetic proof.`;}catch(e){$('status').textContent='Check failed: '+e.message;console.error(e);}}
 for(const m of MODES){const b=document.createElement('button');b.textContent=m.name;b.dataset.id=m.id;b.onclick=()=>setScene(m.id);$('nav').append(b);}
-$('play').onclick=()=>{if(exporting||benchmarkBusy||state.scene==='cost'||state.scene==='shadows'&&!state.construction)return;if(playing){stopPlaying();return;}if(state.phase>=1)state.phase=0;playing=true;playStart=NOW();phaseStart=state.phase;$('play').textContent='Pause';};
+$('play').onclick=()=>{if(exporting||benchmarkBusy||state.scene==='cost'||state.scene==='shadows'&&!state.construction)return;if(playing){stopPlaying();return;}if(state.phase>=1){state.phase=0;render();}playing=true;playStart=NOW();phaseStart=state.phase;$('play').textContent='Pause';playbackFrame=requestAnimationFrame(tick);};
 $('restart').onclick=()=>{stopPlaying();state.phase=0;render();};
 function stepBy(dir){if(state.scene==='cost'||state.scene==='shadows'&&!state.construction)return;stopPlaying();if(state.scene==='metrics'){const {min,max}=sampleResolutionRange(state),current=sampleResolution(state);state.phase=(clamp(current+dir,min,max)-min)/(max-min);render();return;}const stops=panelData.progress?.phaseStops;if(stops?.length){const i=Math.max(0,stops.findLastIndex(p=>p<=state.phase+1e-9)),next=clamp(i+dir,0,stops.length-1);state.phase=stops[next];render();return;}const step=Math.floor(state.phase*stepCount+1e-6),next=clamp(step+dir,0,stepCount);state.phase=next===stepCount?1:Math.min(1,(next+.03)/stepCount);render();}
 $('prev').onclick=()=>stepBy(-1);$('next').onclick=()=>stepBy(1);$('phase').oninput=e=>{stopPlaying();state.phase=+e.target.value;render();};$('duration').onchange=e=>state.duration=+e.target.value;
@@ -2508,13 +3223,26 @@ view.addEventListener('pointerdown',e=>{if(state.scene==='cost'||exporting||benc
 function applyPointer(p){if(!drag||!drag.moved)return;if(drag.kind==='background')return;if(drag.kind==='orbit'){state.yaw=cameraAzimuth(state.yaw-(p[0]-drag.last[0])*.004);state.pitch=clamp(state.pitch+(p[1]-drag.last[1])*.003,MIN_CAMERA_ELEVATION,MAX_CAMERA_ELEVATION);drag.last=p;render();return;}const z=drag.kind==='light'?state.light[2]:drag.kind==='terrain'?terrainState(state).q[2]:0;let q=drag.m?drag.m.inverse(p):drag.cam.inverseZ(p,z);if(drag.kind==='map2'){if(validObserver(q,SCENES[state.map]))state.q2=q;}else if(drag.kind==='light'||drag.kind==='lightPlan'){q=[clamp(q[0],1,99),clamp(q[1],1,69),state.light[2]];if(!URBAN3.boxes.some(b=>q[0]>b[0]&&q[0]<b[0]+b[2]&&q[1]>b[1]&&q[1]<b[1]+b[3]&&q[2]<b[4]))state.light=q;}else state.qxy=[clamp(q[0],1,99),clamp(q[1],1,69)];render();}
 view.addEventListener('pointermove',e=>{if(!drag)return;if(Math.hypot(e.clientX-drag.startClient[0],e.clientY-drag.startClient[1])>=4)drag.moved=true;pointerPending=pointEvent(e);if(!pointerFrame)pointerFrame=requestAnimationFrame(()=>{pointerFrame=0;const p=pointerPending;pointerPending=null;if(p)applyPointer(p);});});view.addEventListener('pointerup',e=>{if(!drag)return;if(pointerPending){applyPointer(pointerPending);pointerPending=null;}if(!drag.moved){const target=drag.target;if(target?.selectFaces){const id=terrainFaceAt(target,pointEvent(e));if(id>=0){state.face=id;captureSharedScene(state);render();}}}drag=null;buildControls();});view.addEventListener('pointercancel',()=>{drag=null;pointerPending=null;});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||exporting||benchmarkBusy)return;if(e.code==='Space'&&state.scene!=='cost'){e.preventDefault();$('play').click();}else if(e.key==='ArrowRight'){e.preventDefault();stepBy(1);}else if(e.key==='ArrowLeft'){e.preventDefault();stepBy(-1);}else if(/^[1-8]$/.test(e.key))setScene(MODES[+e.key-1].id);});
-function tick(t){if(playing&&!exporting&&!benchmarkBusy){const elapsed=(t-playStart)/1000/state.duration+phaseStart;if((state.scene==='expansion'&&state.variant==='locate'||state.scene==='metrics')&&elapsed>=1){state.phase=1;stopPlaying();}else state.phase=elapsed%1;render();}requestAnimationFrame(tick);}
+function tick(t){
+ playbackFrame=0;
+ if(!playing)return;
+ if(!exporting&&!benchmarkBusy){
+  const sampling=state.scene==='metrics',prior=sampling?sampleResolution(state):0;
+  const elapsed=(t-playStart)/1000/state.duration+phaseStart;
+  const ended=(state.scene==='expansion'&&state.variant==='locate'||sampling)&&elapsed>=1;
+  state.phase=ended?1:elapsed%1;
+  if(ended)stopPlaying();
+  if(!sampling||prior!==sampleResolution(state)||ended)render();
+  else syncPhaseDisplay();
+ }
+ if(playing)playbackFrame=requestAnimationFrame(tick);
+}
 window.visibilityLab={version:4,getState:()=>structuredClone(state),setState:s=>{state=stateWithSharedScene(state,s);stopPlaying();buildControls();buildDocs();render();},renderAt:(scene,phase,settings={})=>{captureSharedScene(state);state=validate({...DEFAULT,...settings,scene,phase});captureSharedScene(state);stopPlaying();buildControls();buildDocs();render();return graphicSVG();},exportSVG:svgForExport,snapshot:()=>({panel:panelData,steps:stepCount,state:structuredClone(state),error:window.lastLabError||null}),render,runBenchmark,configureBenchmark,benchmarkStatus,benchmarkConfig,savedBenchmark:()=>SAVED_BENCHMARK,savedTerrainBenchmark:()=>SAVED_TERRAIN_BENCHMARK,selectedBenchmark,benchmarkInspectionState,planBenchmarkRun,benchmarkArchivedDatasets,benchmarkExportArchive,quickChecks,benchmark:()=>benchResult,geometry:{expandVector2,visibility,locate2,SCENES,terrainState,referenceSurface3,expand3,rayCube,rasterCube,recoverCells,prepare3,prepareRayQuery,traceRayCube,prepareRayReconstruction,recoverRaySurface,prepareTerrainRaster,terrainRasterVisibility,recoverTerrainRaster,surfaceError,surfacePatches,sampleSurface,projector,singleShadow,occluderOrder},hitTargets:()=>hitTargets,sharedScenes:()=>structuredClone(sharedScenes)};
 let resizeFrame=0;
 new ResizeObserver(()=>{if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;render();});}).observe(view.parentElement);
 const [hash,parameters='']=location.hash.slice(1).split('?'),route=new URLSearchParams(parameters),initialScene=hash==='events'?'expansion':hash;if(MODES.some(m=>m.id===initialScene)){state=validate({...state,scene:initialScene,variant:route.get('mode')||MODES.find(m=>m.id===initialScene).variants[0][0],dimension:route.get('dimension')||state.dimension,raySearch:route.get('search')||state.raySearch,phase:route.has('phase')?+route.get('phase'):state.phase});captureSharedScene(state);}
 
-buildControls();buildDocs();render();requestAnimationFrame(tick);
+buildControls();buildDocs();render();
 </script>
 </body>
 </html>
